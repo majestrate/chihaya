@@ -7,11 +7,14 @@
 package models
 
 import (
-	"net"
-	"strings"
+    "fmt"
+    "strings"
 	"time"
 
 	"github.com/chihaya/chihaya/config"
+
+    // for i2p announces
+    i2p "github.com/majestrate/i2p-tools/sam3"
 )
 
 var (
@@ -59,18 +62,14 @@ type PeerList []Peer
 // PeerKey is the key used to uniquely identify a peer in a swarm.
 type PeerKey string
 
-// NewPeerKey creates a properly formatted PeerKey.
-func NewPeerKey(peerID string, ip net.IP) PeerKey {
-	return PeerKey(peerID + "//" + ip.String())
+// NewPeerKey creates a properly formatted PeerKey given full i2p destination
+func NewPeerKeyForDest(peerID string, addr i2p.I2PAddr) PeerKey {
+	return NewPeerKey(peerID, addr.DestHash())
 }
 
-// IP parses and returns the IP address for a given PeerKey.
-func (pk PeerKey) IP() net.IP {
-	ip := net.ParseIP(strings.Split(string(pk), "//")[1])
-	if rval := ip.To4(); rval != nil {
-		return rval
-	}
-	return ip
+// NewPeerKey creates a properly formatted PeerKey given an i2p desthash
+func NewPeerKey(peerID string, dhash i2p.I2PDestHash) PeerKey {
+    return PeerKey(fmt.Sprintf("%s//%s", peerID, dhash))
 }
 
 // PeerID returns the PeerID section of a PeerKey.
@@ -78,11 +77,16 @@ func (pk PeerKey) PeerID() string {
 	return strings.Split(string(pk), "//")[0]
 }
 
-// Endpoint is an IP and port pair.
-//
-// IP always has length net.IPv4len if IPv4, and net.IPv6len if IPv6.
+// Dest returns the i2p destination hash of a PeerKey
+func (pk PeerKey) Dest() (dhash i2p.I2PDestHash) {
+    str := strings.Split(string(pk), "//")[1]
+    dhash, _ = i2p.DestHashFromString(str)
+    return
+}
+
+// Endpoint is an i2p destination hash with port optionally included
 type Endpoint struct {
-	IP   net.IP `json:"ip"`
+	Dest   i2p.I2PDestHash `json:"-"`
 	Port uint16 `json:"port"`
 }
 
@@ -95,24 +99,12 @@ type Peer struct {
 	Downloaded   uint64 `json:"downloaded"`
 	Left         uint64 `json:"left"`
 	LastAnnounce int64  `json:"lastAnnounce"`
-	Endpoint
-}
-
-// HasIPv4 determines if a peer's IP address can be represented as an IPv4
-// address.
-func (p *Peer) HasIPv4() bool {
-	return !p.HasIPv6()
-}
-
-// HasIPv6 determines if a peer's IP address can be represented as an IPv6
-// address.
-func (p *Peer) HasIPv6() bool {
-	return len(p.IP) == net.IPv6len
+    Endpoint
 }
 
 // Key returns a PeerKey for the given peer.
 func (p *Peer) Key() PeerKey {
-	return NewPeerKey(p.ID, p.IP)
+    return NewPeerKey(p.ID, p.Dest)
 }
 
 // Torrent represents a BitTorrent swarm and its metadata.
@@ -147,23 +139,21 @@ type User struct {
 type Announce struct {
 	Config *config.Config `json:"config"`
 
-	Compact    bool     `json:"compact"`
-	Downloaded uint64   `json:"downloaded"`
-	Event      string   `json:"event"`
-	IPv4       Endpoint `json:"ipv4"`
-	IPv6       Endpoint `json:"ipv6"`
-	Infohash   string   `json:"infohash"`
-	Left       uint64   `json:"left"`
-	NumWant    int      `json:"numwant"`
-	Passkey    string   `json:"passkey"`
-	PeerID     string   `json:"peer_id"`
-	Uploaded   uint64   `json:"uploaded"`
-
+	Compact    bool        `json:"compact"`
+	Downloaded uint64      `json:"downloaded"`
+	Event      string      `json:"event"`
+	Infohash   string      `json:"infohash"`
+    Dest       Endpoint    `json:"-"`
+    Port       uint16      `json:"port"`
+	Left       uint64      `json:"left"`
+	NumWant    int         `json:"numwant"`
+	Passkey    string      `json:"passkey"`
+	PeerID     string      `json:"peer_id"`
+	Uploaded   uint64      `json:"uploaded"`
+    
 	Torrent *Torrent `json:"-"`
 	User    *User    `json:"-"`
 	Peer    *Peer    `json:"-"`
-	PeerV4  *Peer    `json:"-"` // Only valid if HasIPv4() is true.
-	PeerV6  *Peer    `json:"-"` // Only valid if HasIPv6() is true.
 }
 
 // ClientID returns the part of a PeerID that identifies a Peer's client
@@ -183,53 +173,30 @@ func (a *Announce) ClientID() (clientID string) {
 	return
 }
 
-// HasIPv4 determines whether or not an announce has an IPv4 endpoint.
-func (a *Announce) HasIPv4() bool {
-	return a.IPv4.IP != nil
-}
-
-// HasIPv6 determines whether or not an announce has an IPv6 endpoint.
-func (a *Announce) HasIPv6() bool {
-	return a.IPv6.IP != nil
-}
-
 // BuildPeer creates the Peer representation of an Announce. When provided nil
 // for the user or torrent parameter, it creates a Peer{UserID: 0} or
-// Peer{TorrentID: 0}, respectively. BuildPeer creates one peer for each IP
-// in the announce, and panics if there are none.
-func (a *Announce) BuildPeer(u *User, t *Torrent) {
-	a.Peer = &Peer{
-		ID:           a.PeerID,
-		Uploaded:     a.Uploaded,
-		Downloaded:   a.Downloaded,
-		Left:         a.Left,
-		LastAnnounce: time.Now().Unix(),
-	}
-
-	if t != nil {
-		a.Peer.TorrentID = t.ID
-		a.Torrent = t
-	}
-
-	if u != nil {
-		a.Peer.UserID = u.ID
-		a.User = u
-	}
-
-	if a.HasIPv4() && a.HasIPv6() {
-		a.PeerV4 = a.Peer
-		a.PeerV4.Endpoint = a.IPv4
-		a.PeerV6 = &*a.Peer
-		a.PeerV6.Endpoint = a.IPv6
-	} else if a.HasIPv4() {
-		a.PeerV4 = a.Peer
-		a.PeerV4.Endpoint = a.IPv4
-	} else if a.HasIPv6() {
-		a.PeerV6 = a.Peer
-		a.PeerV6.Endpoint = a.IPv6
-	} else {
-		panic("models: announce must have an IP")
-	}
+// Peer{TorrentID: 0}, respectively.
+func (a *Announce) BuildPeer(u *User, t *Torrent) (err error) {
+    a.Peer = &Peer{
+        ID:           a.PeerID,
+        Uploaded:     a.Uploaded,
+        Downloaded:   a.Downloaded,
+        Left:         a.Left,
+        LastAnnounce: time.Now().Unix(),
+    }
+    copy(a.Peer.Dest[:], a.Dest.Dest[:])
+    a.Peer.Port = a.Port
+    
+    if t != nil {
+        a.Peer.TorrentID = t.ID
+        a.Torrent = t
+    }
+    
+    if u != nil {
+        a.Peer.UserID = u.ID
+        a.User = u
+    }
+    
 	return
 }
 
@@ -260,7 +227,7 @@ type AnnounceResponse struct {
 	Announce              *Announce
 	Complete, Incomplete  int
 	Interval, MinInterval time.Duration
-	IPv4Peers, IPv6Peers  PeerList
+	Peers PeerList
 
 	Compact bool
 }

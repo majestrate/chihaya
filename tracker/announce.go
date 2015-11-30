@@ -119,23 +119,9 @@ func newAnnounceDelta(ann *models.Announce, t *models.Torrent) *models.AnnounceD
 
 // updateSwarm handles the changes to a torrent's swarm given an announce.
 func (tkr *Tracker) updateSwarm(ann *models.Announce) (created bool, err error) {
-	var createdv4, createdv6 bool
 	tkr.TouchTorrent(ann.Torrent.Infohash)
-
-	if ann.HasIPv4() {
-		createdv4, err = tkr.updatePeer(ann, ann.PeerV4)
-		if err != nil {
-			return
-		}
-	}
-	if ann.HasIPv6() {
-		createdv6, err = tkr.updatePeer(ann, ann.PeerV6)
-		if err != nil {
-			return
-		}
-	}
-
-	return createdv4 || createdv6, nil
+    created, err = tkr.updatePeer(ann, ann.Peer)
+    return
 }
 
 func (tkr *Tracker) updatePeer(ann *models.Announce, peer *models.Peer) (created bool, err error) {
@@ -160,14 +146,14 @@ func (tkr *Tracker) updatePeer(ann *models.Announce, peer *models.Peer) (created
 			if err != nil {
 				return
 			}
-			stats.RecordPeerEvent(stats.NewSeed, p.HasIPv6())
+			stats.RecordPeerEvent(stats.NewSeed)
 
 		} else {
 			err = tkr.PutLeecher(t.Infohash, p)
 			if err != nil {
 				return
 			}
-			stats.RecordPeerEvent(stats.NewLeech, p.HasIPv6())
+			stats.RecordPeerEvent(stats.NewLeech)
 		}
 		created = true
 	}
@@ -177,30 +163,15 @@ func (tkr *Tracker) updatePeer(ann *models.Announce, peer *models.Peer) (created
 // handleEvent checks to see whether an announce has an event and if it does,
 // properly handles that event.
 func (tkr *Tracker) handleEvent(ann *models.Announce) (snatched bool, err error) {
-	var snatchedv4, snatchedv6 bool
-
-	if ann.HasIPv4() {
-		snatchedv4, err = tkr.handlePeerEvent(ann, ann.PeerV4)
-		if err != nil {
-			return
+    snatched, err = tkr.handlePeerEvent(ann, ann.Peer)
+    if err == nil {
+        err = tkr.IncrementTorrentSnatches(ann.Torrent.Infohash)
+		if err == nil {	
+            ann.Torrent.Snatches++
+            snatched = true
 		}
 	}
-	if ann.HasIPv6() {
-		snatchedv6, err = tkr.handlePeerEvent(ann, ann.PeerV6)
-		if err != nil {
-			return
-		}
-	}
-
-	if snatchedv4 || snatchedv6 {
-		err = tkr.IncrementTorrentSnatches(ann.Torrent.Infohash)
-		if err != nil {
-			return
-		}
-		ann.Torrent.Snatches++
-		return true, nil
-	}
-	return false, nil
+	return
 }
 
 func (tkr *Tracker) handlePeerEvent(ann *models.Announce, p *models.Peer) (snatched bool, err error) {
@@ -215,14 +186,14 @@ func (tkr *Tracker) handlePeerEvent(ann *models.Announce, p *models.Peer) (snatc
 			if err != nil {
 				return
 			}
-			stats.RecordPeerEvent(stats.DeletedSeed, p.HasIPv6())
+			stats.RecordPeerEvent(stats.DeletedSeed)
 
 		} else if t.Leechers.Contains(p.Key()) {
 			err = tkr.DeleteLeecher(t.Infohash, p)
 			if err != nil {
 				return
 			}
-			stats.RecordPeerEvent(stats.DeletedLeech, p.HasIPv6())
+			stats.RecordPeerEvent(stats.DeletedLeech)
 		}
 
 	case t.Leechers.Contains(p.Key()) && (ann.Event == "completed" || ann.Left == 0):
@@ -252,7 +223,7 @@ func (tkr *Tracker) leecherFinished(t *models.Torrent, p *models.Peer) error {
 		return err
 	}
 
-	stats.RecordPeerEvent(stats.Completed, p.HasIPv6())
+	stats.RecordPeerEvent(stats.Completed)
 	return nil
 }
 
@@ -266,14 +237,14 @@ func newAnnounceResponse(ann *models.Announce) *models.AnnounceResponse {
 		Incomplete:  leechCount,
 		Interval:    ann.Config.Announce.Duration,
 		MinInterval: ann.Config.MinAnnounce.Duration,
-		Compact:     ann.Compact,
+		Compact:     true,
 	}
 
 	if ann.NumWant > 0 && ann.Event != "stopped" && ann.Event != "paused" {
-		res.IPv4Peers, res.IPv6Peers = getPeers(ann)
+		res.Peers = getPeers(ann)
 
-		if len(res.IPv4Peers)+len(res.IPv6Peers) == 0 {
-			models.AppendPeer(&res.IPv4Peers, &res.IPv6Peers, ann, ann.Peer)
+		if len(res.Peers) == 0 {
+            res.Peers = append(res.Peers, *ann.Peer)
 		}
 	}
 
@@ -282,15 +253,13 @@ func newAnnounceResponse(ann *models.Announce) *models.AnnounceResponse {
 
 // getPeers returns lists IPv4 and IPv6 peers on a given torrent sized according
 // to the wanted parameter.
-func getPeers(ann *models.Announce) (ipv4s, ipv6s models.PeerList) {
-	ipv4s, ipv6s = models.PeerList{}, models.PeerList{}
-
+func getPeers(ann *models.Announce) (peers models.PeerList) {
 	if ann.Left == 0 {
 		// If they're seeding, give them only leechers.
-		return ann.Torrent.Leechers.AppendPeers(ipv4s, ipv6s, ann, ann.NumWant)
+		return ann.Torrent.Leechers.AppendPeers(peers, ann, ann.NumWant)
 	}
 
 	// If they're leeching, prioritize giving them seeders.
-	ipv4s, ipv6s = ann.Torrent.Seeders.AppendPeers(ipv4s, ipv6s, ann, ann.NumWant)
-	return ann.Torrent.Leechers.AppendPeers(ipv4s, ipv6s, ann, ann.NumWant-len(ipv4s)-len(ipv6s))
+	peers = ann.Torrent.Seeders.AppendPeers(peers, ann, ann.NumWant)
+	return ann.Torrent.Leechers.AppendPeers(peers, ann, ann.NumWant-len(peers))
 }

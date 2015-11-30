@@ -5,6 +5,8 @@
 package http
 
 import (
+    "fmt"
+    "io"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -23,6 +25,11 @@ func handleTorrentError(err error, w *Writer) (int, error) {
 	}
 
 	return http.StatusInternalServerError, err
+}
+
+func (s *Server) serveIndex(w http.ResponseWriter, r http.Request, p httprouter.Params) (int, error) {
+    _, err := io.WriteString(w, fmt.Sprintf("<html><head><title>bittorrent tracker</title></head><body>%s</body></html>", s.samKeys.Addr().Base32()))
+    return http.StatusOK, err
 }
 
 func (s *Server) serveAnnounce(w http.ResponseWriter, r *http.Request, p httprouter.Params) (int, error) {

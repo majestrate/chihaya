@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"time"
 
+
+    i2p "github.com/majestrate/i2p-tools/sam3"
 	"github.com/golang/glog"
 	"github.com/julienschmidt/httprouter"
 	"github.com/tylerb/graceful"
@@ -25,6 +27,13 @@ type ResponseHandler func(http.ResponseWriter, *http.Request, httprouter.Params)
 
 // Server represents an HTTP serving torrent tracker.
 type Server struct {
+
+    // i2p related members
+    sam      *i2p.SAM
+    samKeys  *i2p.I2PKeys
+    samSession *i2p.StreamSession
+    samListener *i2p.StreamListener
+    
 	config   *config.Config
 	tracker  *tracker.Tracker
 	grace    *graceful.Server
@@ -69,6 +78,10 @@ func makeHandler(handler ResponseHandler) httprouter.Handle {
 	}
 }
 
+func (s *Server) I2PAddr() i2p.I2PAddr {
+    return s.samKeys.Addr()
+}
+
 // newRouter returns a router with all the routes.
 func newRouter(s *Server) *httprouter.Router {
 	r := httprouter.New()
@@ -80,7 +93,6 @@ func newRouter(s *Server) *httprouter.Router {
 		r.GET("/announce", makeHandler(s.serveAnnounce))
 		r.GET("/scrape", makeHandler(s.serveScrape))
 	}
-
 	return r
 }
 
@@ -105,33 +117,66 @@ func (s *Server) connState(conn net.Conn, state http.ConnState) {
 	}
 }
 
+func (s *Server) Setup() (err error) {
+    addr := s.config.I2P.SAM.Addr
+	glog.V(0).Info("Starting HTTP on i2p via ", addr)
+    s.sam, err = i2p.NewSAM(addr)
+    if err != nil {
+        glog.Errorf("Failed to talk to I2P via %s: %s", addr, err)
+        return
+    }
+
+    fname := s.config.I2P.SAM.Keyfile
+    var keys i2p.I2PKeys
+    glog.V(0).Info("Ensuring keyfile ", fname)
+    keys, err = s.sam.EnsureKeyfile(fname)
+    if err != nil {
+        glog.Errorf("Could not persist/load keyfile %s: %s", fname, err)
+        return
+    }
+
+    s.samKeys = &keys
+    
+    sess := s.config.I2P.SAM.Session
+    opts := s.config.I2P.SAM.Opts
+    glog.V(0).Info("Creating new Session with I2P")
+    s.samSession, err = s.sam.NewStreamSession(sess, keys, opts.AsList())
+    if err != nil {
+        glog.Errorf("Could not create session with I2P: %s", err)
+        return
+    }
+
+    glog.V(0).Info("Starting to Listen for I2P Connections")
+    
+    s.samListener, err = s.samSession.Listen()
+
+    if err != nil {
+        glog.Errorf("Could not listen on session with I2P: %s", err)
+        return
+    }
+    return
+}
+
 // Serve runs an HTTP server, blocking until the server has shut down.
 func (s *Server) Serve() {
-	glog.V(0).Info("Starting HTTP on ", s.config.HTTPConfig.ListenAddr)
-
-	if s.config.HTTPConfig.ListenLimit != 0 {
-		glog.V(0).Info("Limiting connections to ", s.config.HTTPConfig.ListenLimit)
-	}
 
 	grace := &graceful.Server{
 		Timeout:     s.config.HTTPConfig.RequestTimeout.Duration,
 		ConnState:   s.connState,
 		ListenLimit: s.config.HTTPConfig.ListenLimit,
-
+        Server: &http.Server{
+            Handler: newRouter(s),
+            ReadTimeout: s.config.HTTPConfig.ReadTimeout.Duration,
+            WriteTimeout: s.config.HTTPConfig.WriteTimeout.Duration,
+        },
 		NoSignalHandling: true,
-		Server: &http.Server{
-			Addr:         s.config.HTTPConfig.ListenAddr,
-			Handler:      newRouter(s),
-			ReadTimeout:  s.config.HTTPConfig.ReadTimeout.Duration,
-			WriteTimeout: s.config.HTTPConfig.WriteTimeout.Duration,
-		},
 	}
 
-	s.grace = grace
+    s.grace = grace
 	grace.SetKeepAlivesEnabled(false)
 	grace.ShutdownInitiated = func() { s.stopping = true }
-
-	if err := grace.ListenAndServe(); err != nil {
+    glog.V(0).Info("HTTP Server listening via I2P ^-^ we are ", s.samKeys.Addr().Base32())
+	if err := grace.Serve(s.samListener); err != nil {
 		if opErr, ok := err.(*net.OpError); !ok || (ok && opErr.Op != "accept") {
 			glog.Errorf("Failed to gracefully run HTTP server: %s", err.Error())
 			return

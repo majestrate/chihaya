@@ -88,14 +88,12 @@ type Stats struct {
 	TorrentsRemoved uint64 `json:"torrentsRemoved"`
 	TorrentsReaped  uint64 `json:"torrentsReaped"`
 
-	IPv4Peers PeerStats `json:"peersIPv4"`
-	IPv6Peers PeerStats `json:"peersIPv6"`
+	Peers PeerStats `json:"peers`
 
 	*MemStatsWrapper `json:",omitempty"`
 
 	events             chan int
-	ipv4PeerEvents     chan int
-	ipv6PeerEvents     chan int
+	peerEvents        chan int
 	responseTimeEvents chan time.Duration
 	recordMemStats     <-chan time.Time
 
@@ -109,8 +107,7 @@ func New(cfg config.StatsConfig) *Stats {
 
 		GoRoutines: 0,
 
-		ipv4PeerEvents:     make(chan int, cfg.BufferSize),
-		ipv6PeerEvents:     make(chan int, cfg.BufferSize),
+		peerEvents:     make(chan int, cfg.BufferSize),
 		responseTimeEvents: make(chan time.Duration, cfg.BufferSize),
 
 		ResponseTime: PercentileTimes{
@@ -146,12 +143,8 @@ func (s *Stats) RecordEvent(event int) {
 	s.events <- event
 }
 
-func (s *Stats) RecordPeerEvent(event int, ipv6 bool) {
-	if ipv6 {
-		s.ipv6PeerEvents <- event
-	} else {
-		s.ipv4PeerEvents <- event
-	}
+func (s *Stats) RecordPeerEvent(event int) {
+    s.peerEvents <- event
 }
 
 func (s *Stats) RecordTiming(event int, duration time.Duration) {
@@ -169,11 +162,8 @@ func (s *Stats) handleEvents() {
 		case event := <-s.events:
 			s.handleEvent(event)
 
-		case event := <-s.ipv4PeerEvents:
-			s.handlePeerEvent(&s.IPv4Peers, event)
-
-		case event := <-s.ipv6PeerEvents:
-			s.handlePeerEvent(&s.IPv6Peers, event)
+		case event := <-s.peerEvents:
+			s.handlePeerEvent(&s.Peers, event)
 
 		case duration := <-s.responseTimeEvents:
 			f := float64(duration) / float64(time.Millisecond)
@@ -277,9 +267,9 @@ func RecordEvent(event int) {
 }
 
 // RecordPeerEvent broadcasts a peer event to the default stats queue.
-func RecordPeerEvent(event int, ipv6 bool) {
+func RecordPeerEvent(event int) {
 	if DefaultStats != nil {
-		DefaultStats.RecordPeerEvent(event, ipv6)
+		DefaultStats.RecordPeerEvent(event)
 	}
 }
 

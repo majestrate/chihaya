@@ -33,23 +33,10 @@ func (w *Writer) WriteAnnounce(res *models.AnnounceResponse) error {
 		"incomplete":   res.Incomplete,
 		"interval":     res.Interval,
 		"min interval": res.MinInterval,
+        "compact": "1",
 	}
 
-	if res.Compact {
-		if res.IPv4Peers != nil {
-			dict["peers"] = compactPeers(false, res.IPv4Peers)
-		}
-		if res.IPv6Peers != nil {
-			compact := compactPeers(true, res.IPv6Peers)
-
-			// Don't bother writing the IPv6 field if there is no value.
-			if len(compact) > 0 {
-				dict["peers6"] = compact
-			}
-		}
-	} else if res.IPv4Peers != nil || res.IPv6Peers != nil {
-		dict["peers"] = peersList(res.IPv4Peers, res.IPv6Peers)
-	}
+    dict["peers"] = compactPeers(res.Peers)
 
 	bencoder := bencode.NewEncoder(w)
 	return bencoder.Encode(dict)
@@ -65,40 +52,12 @@ func (w *Writer) WriteScrape(res *models.ScrapeResponse) error {
 	return bencoder.Encode(dict)
 }
 
-func compactPeers(ipv6 bool, peers models.PeerList) []byte {
+func compactPeers(peers models.PeerList) []byte {
 	var compactPeers bytes.Buffer
-
-	if ipv6 {
-		for _, peer := range peers {
-			compactPeers.Write(peer.IP)
-			compactPeers.Write([]byte{byte(peer.Port >> 8), byte(peer.Port & 0xff)})
-		}
-	} else {
-		for _, peer := range peers {
-			compactPeers.Write(peer.IP)
-			compactPeers.Write([]byte{byte(peer.Port >> 8), byte(peer.Port & 0xff)})
-		}
-	}
-
+    for _, peer := range peers {
+        compactPeers.Write(peer.Dest[:])
+    }
 	return compactPeers.Bytes()
-}
-
-func peersList(ipv4s, ipv6s models.PeerList) (peers []bencode.Dict) {
-	for _, peer := range ipv4s {
-		peers = append(peers, peerDict(&peer, false))
-	}
-	for _, peer := range ipv6s {
-		peers = append(peers, peerDict(&peer, true))
-	}
-	return peers
-}
-
-func peerDict(peer *models.Peer, ipv6 bool) bencode.Dict {
-	return bencode.Dict{
-		"ip":      peer.IP.String(),
-		"peer id": peer.ID,
-		"port":    peer.Port,
-	}
 }
 
 func filesDict(torrents []*models.Torrent) bencode.Dict {

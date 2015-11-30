@@ -8,6 +8,7 @@ package config
 import (
 	"encoding/json"
 	"errors"
+    "fmt"
 	"io"
 	"os"
 	"time"
@@ -113,6 +114,31 @@ type UDPConfig struct {
 	ReadBufferSize int    `json:"udpReadBufferSize"`
 }
 
+// i2cp options for sam connections
+type samOpts map[string]string
+
+
+// obtain sam options as list of strings
+func (opts samOpts) AsList() (ls []string) {
+    for k, v := range opts {
+        ls = append(ls, fmt.Sprintf("%s=%s", k, v))
+    }
+    return
+}
+
+// SamConfig is the config type for the sam connector api for i2p which allows applications to 'speak' with i2p
+type SamConfig struct {
+    Addr string
+    Opts samOpts
+    Session string
+    Keyfile string
+}
+
+// I2PConfig is the configuration for i2p tracker mode options
+type I2PConfig struct {
+    SAM SamConfig
+}
+
 // Config is the global configuration for an instance of Chihaya.
 type Config struct {
 	TrackerConfig
@@ -121,10 +147,19 @@ type Config struct {
 	UDPConfig
 	DriverConfig
 	StatsConfig
+    I2P I2PConfig
 }
 
 // DefaultConfig is a configuration that can be used as a fallback value.
 var DefaultConfig = Config{
+    I2P: I2PConfig{
+        SAM: SamConfig{
+            Addr: "127.0.0.1:7656",
+            Session: "chihaya-i2p",
+            Opts: make(map[string]string),
+            Keyfile: "chihaya-i2p-privkey.dat",
+        },
+    },
 	TrackerConfig: TrackerConfig{
 		CreateOnAnnounce:      true,
 		PrivateEnabled:        false,

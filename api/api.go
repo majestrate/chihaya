@@ -28,6 +28,10 @@ type Server struct {
 	stopping bool
 }
 
+func (s *Server) Setup() error {
+    return nil
+}
+
 // NewServer returns a new API server for a given configuration and tracker
 // instance.
 func NewServer(cfg *config.Config, tkr *tracker.Tracker) *Server {

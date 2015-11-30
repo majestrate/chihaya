@@ -22,7 +22,6 @@ import (
 	"github.com/chihaya/chihaya/http"
 	"github.com/chihaya/chihaya/stats"
 	"github.com/chihaya/chihaya/tracker"
-	"github.com/chihaya/chihaya/udp"
 
 	// See the README for how to import custom drivers.
 	_ "github.com/chihaya/chihaya/backend/noop"
@@ -37,8 +36,8 @@ func init() {
 	flag.IntVar(&maxProcs, "maxprocs", runtime.NumCPU(), "maximum parallel threads")
 	flag.StringVar(&configPath, "config", "", "path to the configuration file")
 }
-
 type server interface {
+    Setup() error
 	Serve()
 	Stop()
 }
@@ -80,13 +79,8 @@ func Boot() {
 		servers = append(servers, api.NewServer(cfg, tkr))
 	}
 
-	if cfg.HTTPConfig.ListenAddr != "" {
-		servers = append(servers, http.NewServer(cfg, tkr))
-	}
+    servers = append(servers, http.NewServer(cfg, tkr))
 
-	if cfg.UDPConfig.ListenAddr != "" {
-		servers = append(servers, udp.NewServer(cfg, tkr))
-	}
 
 	var wg sync.WaitGroup
 	for _, srv := range servers {
@@ -95,8 +89,13 @@ func Boot() {
 		// If you don't explicitly pass the server, every goroutine captures the
 		// last server in the list.
 		go func(srv server) {
-			defer wg.Done()
-			srv.Serve()
+            err := srv.Setup()
+            if err == nil {
+                defer wg.Done()
+                srv.Serve()
+            } else {
+                glog.Fatal("Setup: ", err)
+            }
 		}(srv)
 	}
 

@@ -5,14 +5,15 @@
 package http
 
 import (
-	"errors"
-	"net"
 	"net/http"
 	"strconv"
 
+	"github.com/golang/glog"
+    
+    i2p "github.com/majestrate/i2p-tools/sam3"
+    
 	"github.com/julienschmidt/httprouter"
 
-	"github.com/chihaya/chihaya/config"
 	"github.com/chihaya/chihaya/http/query"
 	"github.com/chihaya/chihaya/tracker/models"
 )
@@ -24,7 +25,11 @@ func (s *Server) newAnnounce(r *http.Request, p httprouter.Params) (*models.Anno
 		return nil, err
 	}
 
-	compact := q.Params["compact"] != "0"
+    if q.Params["compact"] != "1" {
+        // we NEED to be a compact response
+        // TODO: do stuff here
+    }
+
 	event, _ := q.Params["event"]
 	numWant := requestedPeerCount(q, s.config.NumWantFallback)
 
@@ -48,13 +53,12 @@ func (s *Server) newAnnounce(r *http.Request, p httprouter.Params) (*models.Anno
 		return nil, models.ErrMalformedRequest
 	}
 
-	ipv4, ipv6, err := requestedIP(q, r, &s.config.NetConfig)
+	dest, err := requestDest(q, r)
 	if err != nil {
 		return nil, models.ErrMalformedRequest
 	}
 
-	ipv4Endpoint := models.Endpoint{ipv4, uint16(port)}
-	ipv6Endpoint := models.Endpoint{ipv6, uint16(port)}
+    ep := models.Endpoint{dest.DestHash(), uint16(port)}
 
 	downloaded, err := q.Uint64("downloaded")
 	if err != nil {
@@ -68,11 +72,10 @@ func (s *Server) newAnnounce(r *http.Request, p httprouter.Params) (*models.Anno
 
 	return &models.Announce{
 		Config:     s.config,
-		Compact:    compact,
+		Compact:    true,
 		Downloaded: downloaded,
 		Event:      event,
-		IPv4:       ipv4Endpoint,
-		IPv6:       ipv6Endpoint,
+        Dest:       ep,
 		Infohash:   infohash,
 		Left:       left,
 		NumWant:    numWant,
@@ -118,77 +121,12 @@ func requestedPeerCount(q *query.Query, fallback int) int {
 	return fallback
 }
 
-// requestedIP returns the IP address for a request. If there are multiple in
-// the request, one IPv4 and one IPv6 will be returned.
-func requestedIP(q *query.Query, r *http.Request, cfg *config.NetConfig) (v4, v6 net.IP, err error) {
-	var done bool
-
-	if cfg.AllowIPSpoofing {
-		if str, ok := q.Params["ip"]; ok {
-			if v4, v6, done = getIPs(str, v4, v6, cfg); done {
-				return
-			}
-		}
-
-		if str, ok := q.Params["ipv4"]; ok {
-			if v4, v6, done = getIPs(str, v4, v6, cfg); done {
-				return
-			}
-		}
-
-		if str, ok := q.Params["ipv6"]; ok {
-			if v4, v6, done = getIPs(str, v4, v6, cfg); done {
-				return
-			}
-		}
-	}
-
-	if cfg.RealIPHeader != "" {
-		if xRealIPs, ok := r.Header[cfg.RealIPHeader]; ok {
-			if v4, v6, done = getIPs(string(xRealIPs[0]), v4, v6, cfg); done {
-				return
-			}
-		}
-	} else {
-		if r.RemoteAddr == "" && v4 == nil {
-			if v4, v6, done = getIPs("127.0.0.1", v4, v6, cfg); done {
-				return
-			}
-		}
-
-		if v4, v6, done = getIPs(r.RemoteAddr, v4, v6, cfg); done {
-			return
-		}
-	}
-
-	if v4 == nil && v6 == nil {
-		err = errors.New("failed to parse IP address")
-	}
-
-	return
-}
-
-func getIPs(ipstr string, ipv4, ipv6 net.IP, cfg *config.NetConfig) (net.IP, net.IP, bool) {
-	host, _, err := net.SplitHostPort(ipstr)
-	if err != nil {
-		host = ipstr
-	}
-
-	if ip := net.ParseIP(host); ip != nil {
-		ipTo4 := ip.To4()
-		if ipv4 == nil && ipTo4 != nil {
-			ipv4 = ipTo4
-		} else if ipv6 == nil && ipTo4 == nil {
-			ipv6 = ip
-		}
-	}
-
-	var done bool
-	if cfg.DualStackedPeers {
-		done = ipv4 != nil && ipv6 != nil
-	} else {
-		done = ipv4 != nil || ipv6 != nil
-	}
-
-	return ipv4, ipv6, done
+// obtain the "real" i2p destination from the remote request
+func requestDest(q *query.Query, r *http.Request) (dest i2p.I2PAddr, err error) {
+    addr := r.RemoteAddr
+    dest, err = i2p.NewI2PAddrFromString(addr)
+    if err != nil {
+        glog.Errorf("bad destination in announce: %s", addr)
+    }
+    return
 }
