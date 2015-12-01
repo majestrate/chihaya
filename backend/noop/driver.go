@@ -7,9 +7,9 @@
 package noop
 
 import (
-	"github.com/chihaya/chihaya/backend"
-	"github.com/chihaya/chihaya/config"
-	"github.com/chihaya/chihaya/tracker/models"
+	"github.com/majestrate/chihaya/backend"
+	"github.com/majestrate/chihaya/config"
+	"github.com/majestrate/chihaya/tracker/models"
 )
 
 type driver struct{}

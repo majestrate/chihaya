@@ -4,7 +4,7 @@
 
 package main
 
-import "github.com/chihaya/chihaya"
+import "github.com/majestrate/chihaya"
 
 func main() {
 	chihaya.Boot()

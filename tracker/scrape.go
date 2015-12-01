@@ -5,8 +5,8 @@
 package tracker
 
 import (
-	"github.com/chihaya/chihaya/stats"
-	"github.com/chihaya/chihaya/tracker/models"
+	"github.com/majestrate/chihaya/stats"
+	"github.com/majestrate/chihaya/tracker/models"
 )
 
 // HandleScrape encapsulates all the logic of handling a BitTorrent client's

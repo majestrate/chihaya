@@ -14,8 +14,8 @@ import (
     
 	"github.com/julienschmidt/httprouter"
 
-	"github.com/chihaya/chihaya/http/query"
-	"github.com/chihaya/chihaya/tracker/models"
+	"github.com/majestrate/chihaya/http/query"
+	"github.com/majestrate/chihaya/tracker/models"
 )
 
 // newAnnounce parses an HTTP request and generates a models.Announce.

@@ -17,14 +17,14 @@ import (
 
 	"github.com/golang/glog"
 
-	"github.com/chihaya/chihaya/api"
-	"github.com/chihaya/chihaya/config"
-	"github.com/chihaya/chihaya/http"
-	"github.com/chihaya/chihaya/stats"
-	"github.com/chihaya/chihaya/tracker"
+	"github.com/majestrate/chihaya/api"
+	"github.com/majestrate/chihaya/config"
+	"github.com/majestrate/chihaya/http"
+	"github.com/majestrate/chihaya/stats"
+	"github.com/majestrate/chihaya/tracker"
 
 	// See the README for how to import custom drivers.
-	_ "github.com/chihaya/chihaya/backend/noop"
+	_ "github.com/majestrate/chihaya/backend/noop"
 )
 
 var (

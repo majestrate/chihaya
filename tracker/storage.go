@@ -11,9 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/chihaya/chihaya/config"
-	"github.com/chihaya/chihaya/stats"
-	"github.com/chihaya/chihaya/tracker/models"
+	"github.com/majestrate/chihaya/config"
+	"github.com/majestrate/chihaya/stats"
+	"github.com/majestrate/chihaya/tracker/models"
 )
 
 type Torrents struct {

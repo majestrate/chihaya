@@ -11,7 +11,7 @@ import (
     "strings"
 	"time"
 
-	"github.com/chihaya/chihaya/config"
+	"github.com/majestrate/chihaya/config"
 
     // for i2p announces
     i2p "github.com/majestrate/i2p-tools/sam3"

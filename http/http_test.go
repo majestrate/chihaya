@@ -12,11 +12,11 @@ import (
 	"sort"
 
 	"github.com/chihaya/bencode"
-	"github.com/chihaya/chihaya/config"
-	"github.com/chihaya/chihaya/stats"
-	"github.com/chihaya/chihaya/tracker"
+	"github.com/majestrate/chihaya/config"
+	"github.com/majestrate/chihaya/stats"
+	"github.com/majestrate/chihaya/tracker"
 
-	_ "github.com/chihaya/chihaya/backend/noop"
+	_ "github.com/majestrate/chihaya/backend/noop"
 )
 
 type params map[string]string

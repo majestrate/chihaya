@@ -11,9 +11,9 @@ import (
 
 	"github.com/golang/glog"
 
-	"github.com/chihaya/chihaya/backend"
-	"github.com/chihaya/chihaya/config"
-	"github.com/chihaya/chihaya/tracker/models"
+	"github.com/majestrate/chihaya/backend"
+	"github.com/majestrate/chihaya/config"
+	"github.com/majestrate/chihaya/tracker/models"
 )
 
 // Tracker represents the logic necessary to service BitTorrent announces,

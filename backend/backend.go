@@ -10,8 +10,8 @@ package backend
 import (
 	"fmt"
 
-	"github.com/chihaya/chihaya/config"
-	"github.com/chihaya/chihaya/tracker/models"
+	"github.com/majestrate/chihaya/config"
+	"github.com/majestrate/chihaya/tracker/models"
 )
 
 var drivers = make(map[string]Driver)

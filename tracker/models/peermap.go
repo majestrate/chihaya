@@ -7,8 +7,8 @@ package models
 import (
 	"sync"
 
-	"github.com/chihaya/chihaya/config"
-	"github.com/chihaya/chihaya/stats"
+	"github.com/majestrate/chihaya/config"
+	"github.com/majestrate/chihaya/stats"
 )
 
 // PeerMap is a thread-safe map from PeerKeys to Peers. When PreferredSubnet is

@@ -9,7 +9,7 @@ import (
 	"net/http"
 
 	"github.com/chihaya/bencode"
-	"github.com/chihaya/chihaya/tracker/models"
+	"github.com/majestrate/chihaya/tracker/models"
 )
 
 // Writer implements the tracker.Writer interface for the HTTP protocol.

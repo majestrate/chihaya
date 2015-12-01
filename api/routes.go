@@ -12,8 +12,8 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 
-	"github.com/chihaya/chihaya/stats"
-	"github.com/chihaya/chihaya/tracker/models"
+	"github.com/majestrate/chihaya/stats"
+	"github.com/majestrate/chihaya/tracker/models"
 )
 
 const jsonContentType = "application/json; charset=UTF-8"
