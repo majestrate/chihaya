@@ -95,8 +95,18 @@ func (s *Server) putTorrent(w http.ResponseWriter, r *http.Request, p httprouter
 		return http.StatusBadRequest, err
 	}
 
-	s.tracker.PutTorrent(&torrent)
-	return http.StatusOK, nil
+  resp := make(map[string]interface{})
+	err = s.tracker.PutTorrent(&torrent)
+  resp["error"] = err
+  
+  if err == nil {
+    // everything is gud
+    // TODO: put more info into response?
+  }
+  
+  w.Header().Set("Content-Type", jsonContentType)
+  e := json.NewEncoder(w)
+  return handleError(e.Encode(resp))
 }
 
 func (s *Server) delTorrent(w http.ResponseWriter, r *http.Request, p httprouter.Params) (int, error) {
@@ -104,9 +114,19 @@ func (s *Server) delTorrent(w http.ResponseWriter, r *http.Request, p httprouter
 	if err != nil {
 		return http.StatusNotFound, err
 	}
-
-	s.tracker.DeleteTorrent(infohash)
-	return http.StatusOK, nil
+  
+  resp := make(map[string]interface{})
+	err = s.tracker.DeleteTorrent(infohash)
+  resp["error"] = err
+  
+  if err == nil {
+    // everything is gud
+    // TODO: put more info into response?
+  }
+  
+  w.Header().Set("Content-Type", jsonContentType)
+  e := json.NewEncoder(w)
+  return handleError(e.Encode(resp))
 }
 
 func (s *Server) getUser(w http.ResponseWriter, r *http.Request, p httprouter.Params) (int, error) {
@@ -129,13 +149,34 @@ func (s *Server) putUser(w http.ResponseWriter, r *http.Request, p httprouter.Pa
 		return http.StatusBadRequest, err
 	}
 
-	s.tracker.PutUser(&user)
-	return http.StatusOK, nil
+  var madeUser *models.User
+  resp := make(map[string]interface{})
+	madeUser, err = s.tracker.RegisterUser(&user)
+  resp["error"] = err
+  
+  if err == nil {
+    // everything is gud
+    resp["user"] = *madeUser
+  }
+  
+  w.Header().Set("Content-Type", jsonContentType)
+  e := json.NewEncoder(w)
+	return handleError(e.Encode(resp))
 }
 
 func (s *Server) delUser(w http.ResponseWriter, r *http.Request, p httprouter.Params) (int, error) {
-	s.tracker.DeleteUser(p.ByName("passkey"))
-	return http.StatusOK, nil
+  resp := make(map[string]interface{})
+	err := s.tracker.DeleteUser(p.ByName("passkey"))
+  resp["error"] = err
+  
+  if err == nil {
+    // everything is gud
+    // TODO: put more info into response?
+  }
+  
+  w.Header().Set("Content-Type", jsonContentType)
+  e := json.NewEncoder(w)
+	return handleError(e.Encode(resp))
 }
 
 func (s *Server) getClient(w http.ResponseWriter, r *http.Request, p httprouter.Params) (int, error) {
@@ -146,11 +187,11 @@ func (s *Server) getClient(w http.ResponseWriter, r *http.Request, p httprouter.
 }
 
 func (s *Server) putClient(w http.ResponseWriter, r *http.Request, p httprouter.Params) (int, error) {
-	s.tracker.PutClient(p.ByName("clientID"))
+	s.tracker.Cache.PutClient(p.ByName("clientID"))
 	return http.StatusOK, nil
 }
 
 func (s *Server) delClient(w http.ResponseWriter, r *http.Request, p httprouter.Params) (int, error) {
-	s.tracker.DeleteClient(p.ByName("clientID"))
+	s.tracker.Cache.DeleteClient(p.ByName("clientID"))
 	return http.StatusOK, nil
 }

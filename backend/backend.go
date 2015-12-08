@@ -8,10 +8,10 @@
 package backend
 
 import (
-	"fmt"
+  "fmt"
 
-	"github.com/majestrate/chihaya/config"
-	"github.com/majestrate/chihaya/tracker/models"
+  "github.com/majestrate/chihaya/config"
+  "github.com/majestrate/chihaya/tracker/models"
 )
 
 var drivers = make(map[string]Driver)
@@ -19,57 +19,70 @@ var drivers = make(map[string]Driver)
 // Driver represents an interface to a long-running connection with a
 // consistent data store.
 type Driver interface {
-	New(*config.DriverConfig) (Conn, error)
+  New(*config.DriverConfig) (Conn, error)
 }
 
 // Register makes a database driver available by the provided name.
 // If Register is called twice with the same name or if driver is nil,
 // it panics.
 func Register(name string, driver Driver) {
-	if driver == nil {
-		panic("backend: Register driver is nil")
-	}
-	if _, dup := drivers[name]; dup {
-		panic("backend: Register called twice for driver " + name)
-	}
-	drivers[name] = driver
+  if driver == nil {
+    panic("backend: Register driver is nil")
+  }
+  if _, dup := drivers[name]; dup {
+    panic("backend: Register called twice for driver " + name)
+  }
+  drivers[name] = driver
 }
 
 // Open creates a connection specified by a configuration.
 func Open(cfg *config.DriverConfig) (Conn, error) {
-	driver, ok := drivers[cfg.Name]
-	if !ok {
-		return nil, fmt.Errorf(
-			"backend: unknown driver %q (forgotten import?)",
-			cfg.Name,
-		)
-	}
-	return driver.New(cfg)
+  driver, ok := drivers[cfg.Name]
+  if !ok {
+    return nil, fmt.Errorf(
+      "backend: unknown driver %q (forgotten import?)",
+      cfg.Name,
+    )
+  }
+  return driver.New(cfg)
 }
 
 // Conn represents a connection to the data store.
 type Conn interface {
-	// Close terminates connections to the database(s) and gracefully shuts
-	// down the driver
-	Close() error
+  // Close terminates connections to the database(s) and gracefully shuts
+  // down the driver
+  Close() error
 
-	// Ping just checks to see if the database is still alive. This is typically
-	// used for health checks.
-	Ping() error
+  // Ping just checks to see if the database is still alive. This is typically
+  // used for health checks.
+  Ping() error
 
-	// RecordAnnounce is called once per announce, and is passed the delta in
-	// statistics for the client peer since its last announce.
-	RecordAnnounce(delta *models.AnnounceDelta) error
+  // RecordAnnounce is called once per announce, and is passed the delta in
+  // statistics for the client peer since its last announce.
+  RecordAnnounce(delta *models.AnnounceDelta) error
 
-	// LoadTorrents fetches and returns the specified torrents.
-	LoadTorrents(ids []uint64) ([]*models.Torrent, error)
+  // LoadTorrents fetches and returns the specified torrents.
+  LoadTorrents(ids []uint64) ([]*models.Torrent, error)
 
-	// LoadAllTorrents fetches and returns all torrents.
-	LoadAllTorrents() ([]*models.Torrent, error)
+  // LoadUsers fetches and returns the specified users.
+  LoadUsers(ids []uint64) ([]*models.User, error)
 
-	// LoadUsers fetches and returns the specified users.
-	LoadUsers(ids []uint64) ([]*models.User, error)
+  // Get user given a user's passkey
+  GetUserByPassKey(passkey string) (*models.User, error)
 
-	// LoadAllUsers fetches and returns all users.
-	LoadAllUsers() ([]*models.User, error)
+  // get a torrent given its infohash
+  // doesn't load info or peer
+  GetTorrentByInfoHash(infohash string) (*models.Torrent, error)
+
+  // delete a torrent from the database
+  DeleteTorrent(torrent *models.Torrent) error
+
+  // add a torrent to the database
+  AddTorrent(torrent *models.Torrent) error
+
+  // add a user to the database
+  AddUser(user *models.User) error
+
+  // delete a user from the database
+  DeleteUser(user *models.User) error
 }

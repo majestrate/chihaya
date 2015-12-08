@@ -5,8 +5,11 @@
 package http
 
 import (
-	"net/http"
 
+  "fmt"
+  "io"
+  "net/http"
+  
 	"github.com/julienschmidt/httprouter"
 
 	"github.com/majestrate/chihaya/stats"
@@ -43,4 +46,10 @@ func (s *Server) serveScrape(w http.ResponseWriter, r *http.Request, p httproute
 	}
 
 	return handleTorrentError(s.tracker.HandleScrape(scrape, writer), writer)
+}
+
+func (s *Server) serveIndex(w http.ResponseWriter, r *http.Request, p httprouter.Params) (int, error) {
+  txt := fmt.Sprintf("bittorrent open tracker announce url http://%s/announce", s.samKeys.Addr().Base32())
+  _, err := io.WriteString(w, txt)
+  return http.StatusOK, err
 }
