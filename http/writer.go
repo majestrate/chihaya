@@ -21,6 +21,7 @@ type Writer struct {
 func (w *Writer) WriteError(err error) error {
 	bencoder := bencode.NewEncoder(w)
 
+	w.Header().Set("Content-Type", "text/plain")
 	return bencoder.Encode(bencode.Dict{
 		"failure reason": err.Error(),
 	})
@@ -33,11 +34,12 @@ func (w *Writer) WriteAnnounce(res *models.AnnounceResponse) error {
 		"incomplete":   res.Incomplete,
 		"interval":     res.Interval,
 		"min interval": res.MinInterval,
-        "compact": "1",
+		"compact":      1,
 	}
 
-    dict["peers"] = compactPeers(res.Peers)
+	dict["peers"] = compactPeers(res.Peers)
 
+	w.Header().Set("Content-Type", "text/plain")
 	bencoder := bencode.NewEncoder(w)
 	return bencoder.Encode(dict)
 }
@@ -48,15 +50,16 @@ func (w *Writer) WriteScrape(res *models.ScrapeResponse) error {
 		"files": filesDict(res.Files),
 	}
 
+	w.Header().Set("Content-Type", "text/plain")
 	bencoder := bencode.NewEncoder(w)
 	return bencoder.Encode(dict)
 }
 
 func compactPeers(peers models.PeerList) []byte {
 	var compactPeers bytes.Buffer
-    for _, peer := range peers {
-        compactPeers.Write(peer.Dest[:])
-    }
+	for _, peer := range peers {
+		compactPeers.Write(peer.Dest[:])
+	}
 	return compactPeers.Bytes()
 }
 

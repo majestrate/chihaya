@@ -9,9 +9,9 @@ import (
 	"strconv"
 
 	"github.com/golang/glog"
-    
-    i2p "github.com/majestrate/i2p-tools/sam3"
-    
+
+	i2p "github.com/majestrate/i2p-tools/sam3"
+
 	"github.com/julienschmidt/httprouter"
 
 	"github.com/majestrate/chihaya/http/query"
@@ -24,11 +24,6 @@ func (s *Server) newAnnounce(r *http.Request, p httprouter.Params) (*models.Anno
 	if err != nil {
 		return nil, err
 	}
-
-    if q.Params["compact"] != "1" {
-        // we NEED to be a compact response
-        // TODO: do stuff here
-    }
 
 	event, _ := q.Params["event"]
 	numWant := requestedPeerCount(q, s.config.NumWantFallback)
@@ -58,7 +53,7 @@ func (s *Server) newAnnounce(r *http.Request, p httprouter.Params) (*models.Anno
 		return nil, models.ErrMalformedRequest
 	}
 
-    ep := models.Endpoint{dest.DestHash(), uint16(port)}
+	ep := models.Endpoint{dest.DestHash(), uint16(port)}
 
 	downloaded, err := q.Uint64("downloaded")
 	if err != nil {
@@ -75,7 +70,7 @@ func (s *Server) newAnnounce(r *http.Request, p httprouter.Params) (*models.Anno
 		Compact:    true,
 		Downloaded: downloaded,
 		Event:      event,
-        Dest:       ep,
+		Dest:       ep,
 		Infohash:   infohash,
 		Left:       left,
 		NumWant:    numWant,
@@ -123,10 +118,11 @@ func requestedPeerCount(q *query.Query, fallback int) int {
 
 // obtain the "real" i2p destination from the remote request
 func requestDest(q *query.Query, r *http.Request) (dest i2p.I2PAddr, err error) {
-    addr := r.RemoteAddr
-    dest, err = i2p.NewI2PAddrFromString(addr)
-    if err != nil {
-        glog.Errorf("bad destination in announce: %s", addr)
-    }
-    return
+	addr := r.RemoteAddr
+	dest, err = i2p.NewI2PAddrFromString(addr)
+
+	if err != nil {
+		glog.Errorf("bad destination in announce: %s", addr)
+	}
+	return
 }

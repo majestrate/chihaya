@@ -29,7 +29,7 @@ type Server struct {
 }
 
 func (s *Server) Setup() error {
-    return nil
+	return nil
 }
 
 // NewServer returns a new API server for a given configuration and tracker
@@ -89,8 +89,19 @@ func newRouter(s *Server) *httprouter.Router {
 	r := httprouter.New()
 
 	if s.config.PrivateEnabled {
+		// put a user with a passkey into the database
 		r.PUT("/users/:passkey", makeHandler(s.putUser))
+		// remove a user with a passkey from the database
 		r.DELETE("/users/:passkey", makeHandler(s.delUser))
+
+		/*
+		   // get category list
+		   r.GET("/list/cats", makeHandler(s.listCategories))
+		   // get page for category
+		   r.GET("/list/cat/:id", makeHandler(s.listCategory))
+		   // get search results for tag
+		   r.GET("/list/tag/:tag", makeHandler(s.listTag))
+		*/
 	}
 
 	if s.config.ClientWhitelistEnabled {
@@ -99,10 +110,15 @@ func newRouter(s *Server) *httprouter.Router {
 		r.DELETE("/clients/:clientID", makeHandler(s.delClient))
 	}
 
+	// get torrent info
 	r.GET("/torrents/:infohash", makeHandler(s.getTorrent))
+	// add torrent to backend
 	r.PUT("/torrents/:infohash", makeHandler(s.putTorrent))
+	// delete torrent from backend
 	r.DELETE("/torrents/:infohash", makeHandler(s.delTorrent))
+	// check if backend is alive
 	r.GET("/check", makeHandler(s.check))
+	// get stats
 	r.GET("/stats", makeHandler(s.stats))
 
 	return r

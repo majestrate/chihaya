@@ -38,23 +38,37 @@ func (n *NoOp) RecordAnnounce(delta *models.AnnounceDelta) error {
 	return nil
 }
 
-// LoadTorrents returns (nil, nil).
+func (n *NoOp) DeleteTorrent(t *models.Torrent) error {
+	return nil
+}
+
+func (n *NoOp) AddTorrent(t *models.Torrent) error {
+	return nil
+}
+
+func (n *NoOp) DeleteUser(u *models.User) error {
+	return nil
+}
+
+func (n *NoOp) AddUser(u *models.User) error {
+	return nil
+}
+
+func (n *NoOp) GetTorrentByInfoHash(infohash string) (*models.Torrent, error) {
+	return nil, nil
+}
+
+func (n *NoOp) GetUserByPassKey(key string) (*models.User, error) {
+	return nil, nil
+}
+
+// LoadTorrents fetches and returns the specified torrents.
 func (n *NoOp) LoadTorrents(ids []uint64) ([]*models.Torrent, error) {
 	return nil, nil
 }
 
-// LoadAllTorrents returns (nil, nil).
-func (n *NoOp) LoadAllTorrents() ([]*models.Torrent, error) {
-	return nil, nil
-}
-
-// LoadUsers returns (nil, nil).
+// LoadUsers fetches and returns the specified users.
 func (n *NoOp) LoadUsers(ids []uint64) ([]*models.User, error) {
-	return nil, nil
-}
-
-// LoadAllUsers returns (nil, nil).
-func (n *NoOp) LoadAllUsers() ([]*models.User, error) {
 	return nil, nil
 }
 

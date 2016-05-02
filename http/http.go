@@ -7,19 +7,18 @@
 package http
 
 import (
-  "net"
-  "net/http"
-  "time"
+	"net"
+	"net/http"
+	"time"
 
+	"github.com/golang/glog"
+	"github.com/julienschmidt/httprouter"
+	i2p "github.com/majestrate/i2p-tools/sam3"
+	"github.com/tylerb/graceful"
 
-  i2p "github.com/majestrate/i2p-tools/sam3"
-  "github.com/golang/glog"
-  "github.com/julienschmidt/httprouter"
-  "github.com/tylerb/graceful"
-
-  "github.com/majestrate/chihaya/config"
-  "github.com/majestrate/chihaya/stats"
-  "github.com/majestrate/chihaya/tracker"
+	"github.com/majestrate/chihaya/config"
+	"github.com/majestrate/chihaya/stats"
+	"github.com/majestrate/chihaya/tracker"
 )
 
 // ResponseHandler is an HTTP handler that returns a status code.
@@ -28,176 +27,176 @@ type ResponseHandler func(http.ResponseWriter, *http.Request, httprouter.Params)
 // Server represents an HTTP serving torrent tracker.
 type Server struct {
 
-  // i2p related members
-  sam      *i2p.SAM
-  samKeys  *i2p.I2PKeys
-  samSession *i2p.StreamSession
-  samListener *i2p.StreamListener
+	// i2p related members
+	sam         *i2p.SAM
+	samKeys     *i2p.I2PKeys
+	samSession  *i2p.StreamSession
+	samListener *i2p.StreamListener
 
-  config   *config.Config
-  tracker  *tracker.Tracker
-  grace    *graceful.Server
-  stopping bool
+	config   *config.Config
+	tracker  *tracker.Tracker
+	grace    *graceful.Server
+	stopping bool
 }
 
 // makeHandler wraps our ResponseHandlers while timing requests, collecting,
 // stats, logging, and handling errors.
 func makeHandler(handler ResponseHandler) httprouter.Handle {
-  return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-    start := time.Now()
-    httpCode, err := handler(w, r, p)
-    duration := time.Since(start)
+	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		start := time.Now()
+		httpCode, err := handler(w, r, p)
+		duration := time.Since(start)
 
-    var msg string
-    if err != nil {
-      msg = err.Error()
-    } else if httpCode != http.StatusOK {
-      msg = http.StatusText(httpCode)
-    }
+		var msg string
+		if err != nil {
+			msg = err.Error()
+		} else if httpCode != http.StatusOK {
+			msg = http.StatusText(httpCode)
+		}
 
-    if len(msg) > 0 {
-      http.Error(w, msg, httpCode)
-      stats.RecordEvent(stats.ErroredRequest)
-    }
+		if len(msg) > 0 {
+			http.Error(w, msg, httpCode)
+			stats.RecordEvent(stats.ErroredRequest)
+		}
 
-    if len(msg) > 0 || glog.V(2) {
-      reqString := r.URL.Path + " " + r.RemoteAddr
-      if glog.V(3) {
-        reqString = r.URL.RequestURI() + " " + r.RemoteAddr
-      }
+		if len(msg) > 0 || glog.V(2) {
+			reqString := r.URL.Path + " " + r.RemoteAddr
+			if glog.V(3) {
+				reqString = r.URL.RequestURI() + " " + r.RemoteAddr
+			}
 
-      if len(msg) > 0 {
-        glog.Errorf("[HTTP - %9s] %s (%d - %s)", duration, reqString, httpCode, msg)
-      } else {
-        glog.Infof("[HTTP - %9s] %s (%d)", duration, reqString, httpCode)
-      }
-    }
+			if len(msg) > 0 {
+				glog.Errorf("[HTTP - %9s] %s (%d - %s)", duration, reqString, httpCode, msg)
+			} else {
+				glog.Infof("[HTTP - %9s] %s (%d)", duration, reqString, httpCode)
+			}
+		}
 
-    stats.RecordEvent(stats.HandledRequest)
-    stats.RecordTiming(stats.ResponseTime, duration)
-  }
+		stats.RecordEvent(stats.HandledRequest)
+		stats.RecordTiming(stats.ResponseTime, duration)
+	}
 }
 
 func (s *Server) I2PAddr() i2p.I2PAddr {
-    return s.samKeys.Addr()
+	return s.samKeys.Addr()
 }
 
 // newRouter returns a router with all the routes.
 func newRouter(s *Server) *httprouter.Router {
-  r := httprouter.New()
+	r := httprouter.New()
 
-  if s.config.PrivateEnabled {
-    r.GET("/users/:passkey/announce", makeHandler(s.serveAnnounce))
-    r.GET("/users/:passkey/scrape", makeHandler(s.serveScrape))
-  } else {
-    r.GET("/announce", makeHandler(s.serveAnnounce))
-    r.GET("/scrape", makeHandler(s.serveScrape))
-  }
-  r.GET("/", makeHandler(s.serveIndex))
-  return r
+	if s.config.PrivateEnabled {
+		r.GET("/users/:passkey/announce", makeHandler(s.serveAnnounce))
+		r.GET("/users/:passkey/scrape", makeHandler(s.serveScrape))
+	} else {
+		r.GET("/announce", makeHandler(s.serveAnnounce))
+		r.GET("/scrape", makeHandler(s.serveScrape))
+	}
+	r.GET("/", makeHandler(s.serveIndex))
+	return r
 }
 
 // connState is used by graceful in order to gracefully shutdown. It also
 // keeps track of connection stats.
 func (s *Server) connState(conn net.Conn, state http.ConnState) {
-  switch state {
-  case http.StateNew:
-    stats.RecordEvent(stats.AcceptedConnection)
+	switch state {
+	case http.StateNew:
+		stats.RecordEvent(stats.AcceptedConnection)
 
-  case http.StateClosed:
-    stats.RecordEvent(stats.ClosedConnection)
+	case http.StateClosed:
+		stats.RecordEvent(stats.ClosedConnection)
 
-  case http.StateHijacked:
-    panic("connection impossibly hijacked")
+	case http.StateHijacked:
+		panic("connection impossibly hijacked")
 
-  // Ignore the following cases.
-  case http.StateActive, http.StateIdle:
+	// Ignore the following cases.
+	case http.StateActive, http.StateIdle:
 
-  default:
-    glog.Errorf("Connection transitioned to unknown state %s (%d)", state, state)
-  }
+	default:
+		glog.Errorf("Connection transitioned to unknown state %s (%d)", state, state)
+	}
 }
 
 func (s *Server) Setup() (err error) {
-  addr := s.config.I2P.SAM.Addr
-  glog.V(0).Info("Starting HTTP on i2p via ", addr)
-  s.sam, err = i2p.NewSAM(addr)
-  if err != nil {
-    glog.Errorf("Failed to talk to I2P via %s: %s", addr, err)
-    return
-  }
+	addr := s.config.I2P.SAM.Addr
+	glog.V(0).Info("Starting HTTP on i2p via ", addr)
+	s.sam, err = i2p.NewSAM(addr)
+	if err != nil {
+		glog.Errorf("Failed to talk to I2P via %s: %s", addr, err)
+		return
+	}
 
-  fname := s.config.I2P.SAM.Keyfile
-  var keys i2p.I2PKeys
-  glog.V(0).Info("Ensuring keyfile ", fname)
-  keys, err = s.sam.EnsureKeyfile(fname)
-  if err != nil {
-    glog.Errorf("Could not persist/load keyfile %s: %s", fname, err)
-    return
-  }
+	fname := s.config.I2P.SAM.Keyfile
+	var keys i2p.I2PKeys
+	glog.V(0).Info("Ensuring keyfile ", fname)
+	keys, err = s.sam.EnsureKeyfile(fname)
+	if err != nil {
+		glog.Errorf("Could not persist/load keyfile %s: %s", fname, err)
+		return
+	}
 
-    s.samKeys = &keys
+	s.samKeys = &keys
 
-    sess := s.config.I2P.SAM.Session
-    opts := s.config.I2P.SAM.Opts
-    glog.V(0).Info("Creating new Session with I2P")
-    s.samSession, err = s.sam.NewStreamSession(sess, keys, opts.AsList())
-    if err != nil {
-        glog.Errorf("Could not create session with I2P: %s", err)
-        return
-    }
+	sess := s.config.I2P.SAM.Session
+	opts := s.config.I2P.SAM.Opts
+	glog.V(0).Info("Creating new Session with I2P")
+	s.samSession, err = s.sam.NewStreamSession(sess, keys, opts.AsList())
+	if err != nil {
+		glog.Errorf("Could not create session with I2P: %s", err)
+		return
+	}
 
-    glog.V(0).Info("Starting to Listen for I2P Connections")
+	glog.V(0).Info("Starting to Listen for I2P Connections")
 
-    s.samListener, err = s.samSession.Listen()
+	s.samListener, err = s.samSession.Listen()
 
-    if err != nil {
-        glog.Errorf("Could not listen on session with I2P: %s", err)
-        return
-    }
-    return
+	if err != nil {
+		glog.Errorf("Could not listen on session with I2P: %s", err)
+		return
+	}
+	return
 }
 
 // Serve runs an HTTP server, blocking until the server has shut down.
 func (s *Server) Serve() {
 
-  grace := &graceful.Server{
-    Timeout:     s.config.HTTPConfig.RequestTimeout.Duration,
-    ConnState:   s.connState,
-    ListenLimit: s.config.HTTPConfig.ListenLimit,
-        Server: &http.Server{
-            Handler: newRouter(s),
-            ReadTimeout: s.config.HTTPConfig.ReadTimeout.Duration,
-            WriteTimeout: s.config.HTTPConfig.WriteTimeout.Duration,
-        },
-    NoSignalHandling: true,
-  }
+	grace := &graceful.Server{
+		Timeout:     s.config.HTTPConfig.RequestTimeout.Duration,
+		ConnState:   s.connState,
+		ListenLimit: s.config.HTTPConfig.ListenLimit,
+		Server: &http.Server{
+			Handler:      newRouter(s),
+			ReadTimeout:  s.config.HTTPConfig.ReadTimeout.Duration,
+			WriteTimeout: s.config.HTTPConfig.WriteTimeout.Duration,
+		},
+		NoSignalHandling: true,
+	}
 
-    s.grace = grace
-  grace.SetKeepAlivesEnabled(false)
-  grace.ShutdownInitiated = func() { s.stopping = true }
-    glog.V(0).Info("HTTP Server listening via I2P ^-^ we are ", s.samKeys.Addr().Base32())
-  if err := grace.Serve(s.samListener); err != nil {
-    if opErr, ok := err.(*net.OpError); !ok || (ok && opErr.Op != "accept") {
-      glog.Errorf("Failed to gracefully run HTTP server: %s", err.Error())
-      return
-    }
-  }
+	s.grace = grace
+	grace.SetKeepAlivesEnabled(false)
+	grace.ShutdownInitiated = func() { s.stopping = true }
+	glog.V(0).Info("HTTP Server listening via I2P ^-^ we are ", s.samKeys.Addr().Base32())
+	if err := grace.Serve(s.samListener); err != nil {
+		if opErr, ok := err.(*net.OpError); !ok || (ok && opErr.Op != "accept") {
+			glog.Errorf("Failed to gracefully run HTTP server: %s", err.Error())
+			return
+		}
+	}
 
-  glog.Info("HTTP server shut down cleanly")
+	glog.Info("HTTP server shut down cleanly")
 }
 
 // Stop cleanly shuts down the server.
 func (s *Server) Stop() {
-  if !s.stopping {
-    s.grace.Stop(s.grace.Timeout)
-  }
+	if !s.stopping {
+		s.grace.Stop(s.grace.Timeout)
+	}
 }
 
 // NewServer returns a new HTTP server for a given configuration and tracker.
 func NewServer(cfg *config.Config, tkr *tracker.Tracker) *Server {
-  return &Server{
-    config:  cfg,
-    tracker: tkr,
-  }
+	return &Server{
+		config:  cfg,
+		tracker: tkr,
+	}
 }

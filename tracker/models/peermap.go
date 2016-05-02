@@ -15,7 +15,7 @@ import (
 // enabled, it is a thread-safe map of maps from MaskedIPs to Peerkeys to Peers.
 type PeerMap struct {
 	Peers   map[PeerKey]Peer
-	Seeders bool                        `json:"seeders"`
+	Seeders bool `json:"seeders"`
 	sync.RWMutex
 }
 
@@ -48,24 +48,24 @@ func (pm *PeerMap) LookUp(pk PeerKey) (peer Peer, exists bool) {
 func (pm *PeerMap) Put(p Peer) {
 	pm.Lock()
 	defer pm.Unlock()
-    pm.Peers[p.Key()] = p
+	pm.Peers[p.Key()] = p
 }
 
 // Delete is a thread-safe delete from a PeerMap.
 func (pm *PeerMap) Delete(pk PeerKey) {
 	pm.Lock()
 	defer pm.Unlock()
-    _, exists := pm.Peers[pk]
-    if exists {
-        delete(pm.Peers, pk)
-    }
+	_, exists := pm.Peers[pk]
+	if exists {
+		delete(pm.Peers, pk)
+	}
 }
 
 // Len returns the number of peers within a PeerMap.
 func (pm *PeerMap) Len() int {
-    pm.Lock()
+	pm.Lock()
 	defer pm.Unlock()
-    return len(pm.Peers)
+	return len(pm.Peers)
 }
 
 // Purge iterates over all of the peers within a PeerMap and deletes them if
@@ -73,34 +73,34 @@ func (pm *PeerMap) Len() int {
 func (pm *PeerMap) Purge(unixtime int64) {
 	pm.Lock()
 	defer pm.Unlock()
-    for key, peer := range pm.Peers {
-        if peer.LastAnnounce <= unixtime {
-            delete(pm.Peers, key)
-            if pm.Seeders {
-                stats.RecordPeerEvent(stats.ReapedSeed)
-            } else {
-                stats.RecordPeerEvent(stats.ReapedLeech)
-            }
-        }
-    }
+	for key, peer := range pm.Peers {
+		if peer.LastAnnounce <= unixtime {
+			delete(pm.Peers, key)
+			if pm.Seeders {
+				stats.RecordPeerEvent(stats.ReapedSeed)
+			} else {
+				stats.RecordPeerEvent(stats.ReapedLeech)
+			}
+		}
+	}
 }
 
 func (pm *PeerMap) AppendPeers(peers PeerList, a *Announce, wanted int) (ls PeerList) {
-    pm.Lock()
-    defer pm.Unlock()
-    for _, peer := range pm.Peers {
-        if wanted > 0 {
-            if peersEquivalent(a.Peer, &peer) {
-                continue
-            } else {
-                ls = append(ls, peer)
-                wanted --
-            }
-        } else {
-            break
-        }
-    }
-    return
+	pm.Lock()
+	defer pm.Unlock()
+	for _, peer := range pm.Peers {
+		if wanted > 0 {
+			if peersEquivalent(a.Peer, &peer) {
+				continue
+			} else {
+				ls = append(ls, peer)
+				wanted--
+			}
+		} else {
+			break
+		}
+	}
+	return
 }
 
 // peersEquivalent checks if two peers represent the same entity.

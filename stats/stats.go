@@ -93,7 +93,7 @@ type Stats struct {
 	*MemStatsWrapper `json:",omitempty"`
 
 	events             chan int
-	peerEvents        chan int
+	peerEvents         chan int
 	responseTimeEvents chan time.Duration
 	recordMemStats     <-chan time.Time
 
@@ -107,7 +107,7 @@ func New(cfg config.StatsConfig) *Stats {
 
 		GoRoutines: 0,
 
-		peerEvents:     make(chan int, cfg.BufferSize),
+		peerEvents:         make(chan int, cfg.BufferSize),
 		responseTimeEvents: make(chan time.Duration, cfg.BufferSize),
 
 		ResponseTime: PercentileTimes{
@@ -144,7 +144,7 @@ func (s *Stats) RecordEvent(event int) {
 }
 
 func (s *Stats) RecordPeerEvent(event int) {
-    s.peerEvents <- event
+	s.peerEvents <- event
 }
 
 func (s *Stats) RecordTiming(event int, duration time.Duration) {

@@ -95,18 +95,18 @@ func (s *Server) putTorrent(w http.ResponseWriter, r *http.Request, p httprouter
 		return http.StatusBadRequest, err
 	}
 
-  resp := make(map[string]interface{})
+	resp := make(map[string]interface{})
 	err = s.tracker.PutTorrent(&torrent)
-  resp["error"] = err
-  
-  if err == nil {
-    // everything is gud
-    // TODO: put more info into response?
-  }
-  
-  w.Header().Set("Content-Type", jsonContentType)
-  e := json.NewEncoder(w)
-  return handleError(e.Encode(resp))
+	resp["error"] = err
+
+	if err == nil {
+		// everything is gud
+		// TODO: put more info into response?
+	}
+
+	w.Header().Set("Content-Type", jsonContentType)
+	e := json.NewEncoder(w)
+	return handleError(e.Encode(resp))
 }
 
 func (s *Server) delTorrent(w http.ResponseWriter, r *http.Request, p httprouter.Params) (int, error) {
@@ -114,19 +114,19 @@ func (s *Server) delTorrent(w http.ResponseWriter, r *http.Request, p httprouter
 	if err != nil {
 		return http.StatusNotFound, err
 	}
-  
-  resp := make(map[string]interface{})
+
+	resp := make(map[string]interface{})
 	err = s.tracker.DeleteTorrent(infohash)
-  resp["error"] = err
-  
-  if err == nil {
-    // everything is gud
-    // TODO: put more info into response?
-  }
-  
-  w.Header().Set("Content-Type", jsonContentType)
-  e := json.NewEncoder(w)
-  return handleError(e.Encode(resp))
+	resp["error"] = err
+
+	if err == nil {
+		// everything is gud
+		// TODO: put more info into response?
+	}
+
+	w.Header().Set("Content-Type", jsonContentType)
+	e := json.NewEncoder(w)
+	return handleError(e.Encode(resp))
 }
 
 func (s *Server) getUser(w http.ResponseWriter, r *http.Request, p httprouter.Params) (int, error) {
@@ -149,33 +149,33 @@ func (s *Server) putUser(w http.ResponseWriter, r *http.Request, p httprouter.Pa
 		return http.StatusBadRequest, err
 	}
 
-  var madeUser *models.User
-  resp := make(map[string]interface{})
+	var madeUser *models.User
+	resp := make(map[string]interface{})
 	madeUser, err = s.tracker.RegisterUser(&user)
-  resp["error"] = err
-  
-  if err == nil {
-    // everything is gud
-    resp["user"] = *madeUser
-  }
-  
-  w.Header().Set("Content-Type", jsonContentType)
-  e := json.NewEncoder(w)
+	resp["error"] = err
+
+	if err == nil {
+		// everything is gud
+		resp["user"] = *madeUser
+	}
+
+	w.Header().Set("Content-Type", jsonContentType)
+	e := json.NewEncoder(w)
 	return handleError(e.Encode(resp))
 }
 
 func (s *Server) delUser(w http.ResponseWriter, r *http.Request, p httprouter.Params) (int, error) {
-  resp := make(map[string]interface{})
+	resp := make(map[string]interface{})
 	err := s.tracker.DeleteUser(p.ByName("passkey"))
-  resp["error"] = err
-  
-  if err == nil {
-    // everything is gud
-    // TODO: put more info into response?
-  }
-  
-  w.Header().Set("Content-Type", jsonContentType)
-  e := json.NewEncoder(w)
+	resp["error"] = err
+
+	if err == nil {
+		// everything is gud
+		// TODO: put more info into response?
+	}
+
+	w.Header().Set("Content-Type", jsonContentType)
+	e := json.NewEncoder(w)
 	return handleError(e.Encode(resp))
 }
 
@@ -193,5 +193,10 @@ func (s *Server) putClient(w http.ResponseWriter, r *http.Request, p httprouter.
 
 func (s *Server) delClient(w http.ResponseWriter, r *http.Request, p httprouter.Params) (int, error) {
 	s.tracker.Cache.DeleteClient(p.ByName("clientID"))
+	return http.StatusOK, nil
+}
+
+// list categories in json
+func (s *Server) listCategories(w http.ResponseWriter, r *http.Request, p httprouter.Params) (int, error) {
 	return http.StatusOK, nil
 }
