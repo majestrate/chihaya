@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/golang/glog"
 
@@ -91,12 +92,15 @@ func Boot() {
 		// If you don't explicitly pass the server, every goroutine captures the
 		// last server in the list.
 		go func(srv server) {
-			err := srv.Setup()
-			if err == nil {
-				defer wg.Done()
-				srv.Serve()
-			} else {
-				glog.Fatal("Setup: ", err)
+			for {
+				err := srv.Setup()
+				if err == nil {
+					defer wg.Done()
+					srv.Serve()
+				} else {
+					glog.Error("Setup: ", err)
+					time.Sleep(time.Second)
+				}
 			}
 		}(srv)
 	}

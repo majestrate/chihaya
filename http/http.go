@@ -149,7 +149,6 @@ func (s *Server) Setup() (err error) {
 	glog.V(0).Info("Starting to Listen for I2P Connections")
 
 	s.samListener, err = s.samSession.Listen()
-
 	if err != nil {
 		glog.Errorf("Could not listen on session with I2P: %s", err)
 		return
@@ -159,30 +158,15 @@ func (s *Server) Setup() (err error) {
 
 // Serve runs an HTTP server, blocking until the server has shut down.
 func (s *Server) Serve() {
-
-	grace := &graceful.Server{
-		Timeout:     s.config.HTTPConfig.RequestTimeout.Duration,
-		ConnState:   s.connState,
-		ListenLimit: s.config.HTTPConfig.ListenLimit,
-		Server: &http.Server{
-			Handler:      newRouter(s),
-			ReadTimeout:  s.config.HTTPConfig.ReadTimeout.Duration,
-			WriteTimeout: s.config.HTTPConfig.WriteTimeout.Duration,
-		},
-		NoSignalHandling: true,
+	glog.Infof("Serving on %s", s.I2PAddr().Base32())
+	router := newRouter(s)
+	serv := &http.Server{
+		Handler:      router,
+		ReadTimeout:  s.config.HTTPConfig.ReadTimeout.Duration,
+		WriteTimeout: s.config.HTTPConfig.WriteTimeout.Duration,
 	}
-
-	s.grace = grace
-	grace.SetKeepAlivesEnabled(false)
-	grace.ShutdownInitiated = func() { s.stopping = true }
-	glog.V(0).Info("HTTP Server listening via I2P ^-^ we are ", s.samKeys.Addr().Base32())
-	if err := grace.Serve(s.samListener); err != nil {
-		if opErr, ok := err.(*net.OpError); !ok || (ok && opErr.Op != "accept") {
-			glog.Errorf("Failed to gracefully run HTTP server: %s", err.Error())
-			return
-		}
-	}
-
+	err := serv.Serve(s.samListener)
+	glog.Error(err)
 	glog.Info("HTTP server shut down cleanly")
 }
 
