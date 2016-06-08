@@ -45,6 +45,7 @@ func NewStorage(cfg *config.Config) *Storage {
 }
 
 func (s *Storage) DumpTorrents() (t []*models.Torrent) {
+	t = []*models.Torrent{}
 	for i := range s.shards {
 		shard := s.shards[i]
 		shard.RLock()
