@@ -120,7 +120,8 @@ func newRouter(s *Server) *httprouter.Router {
 	r.GET("/check", makeHandler(s.check))
 	// get stats
 	r.GET("/stats", makeHandler(s.stats))
-
+	// dump all info
+	r.GET("/dump", makeHandler(s.dumpAll))
 	return r
 }
 

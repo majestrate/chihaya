@@ -200,3 +200,10 @@ func (s *Server) delClient(w http.ResponseWriter, r *http.Request, p httprouter.
 func (s *Server) listCategories(w http.ResponseWriter, r *http.Request, p httprouter.Params) (int, error) {
 	return http.StatusOK, nil
 }
+
+func (s *Server) dumpAll(w http.ResponseWriter, r *http.Request, p httprouter.Params) (int, error) {
+	t := s.tracker.Cache.DumpTorrents()
+	w.Header().Set("Content-Type", jsonContentType)
+	e := json.NewEncoder(w)
+	return handleError(e.Encode(t))
+}

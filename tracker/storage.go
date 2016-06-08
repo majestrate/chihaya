@@ -44,6 +44,18 @@ func NewStorage(cfg *config.Config) *Storage {
 	return s
 }
 
+func (s *Storage) DumpTorrents() (t []*models.Torrent) {
+	for i := range s.shards {
+		shard := s.shards[i]
+		shard.RLock()
+		for _, torrent := range shard.torrents {
+			t = append(t, torrent)
+		}
+		shard.RUnlock()
+	}
+	return
+}
+
 func (s *Storage) Len() int {
 	return int(atomic.LoadInt32(&s.size))
 }
