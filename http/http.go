@@ -165,6 +165,8 @@ func (s *Server) Serve() {
 		ReadTimeout:  s.config.HTTPConfig.ReadTimeout.Duration,
 		WriteTimeout: s.config.HTTPConfig.WriteTimeout.Duration,
 	}
+	// disable keepalive
+	serv.SetKeepAlivesEnabled(false)
 	err := serv.Serve(s.samListener)
 	glog.Error(err)
 	glog.Info("HTTP server shut down cleanly")
