@@ -13,7 +13,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/julienschmidt/httprouter"
-	i2p "github.com/majestrate/i2p-tools/sam3"
+	i2p "github.com/majestrate/chihaya/sam3"
 	"github.com/tylerb/graceful"
 
 	"github.com/majestrate/chihaya/config"
