@@ -154,6 +154,10 @@ func (s *StreamSession) Listen() (*StreamListener, error) {
 			fmt.Fprintf(sam.conn, "STREAM FORWARD ID=%s PORT=%s SILENT=false\r\n", s.id, port)
 			r := bufio.NewReader(sam.conn)
 			line, err := r.ReadString(10)
+			if err != nil {
+				l.Close()
+				return nil, err
+			}
 			if ! strings.HasPrefix(line, "STREAM STATUS RESULT=OK") {
 				err = errors.New("bad response from i2p: "+line)
 				l.Close()
