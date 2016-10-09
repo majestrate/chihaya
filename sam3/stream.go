@@ -151,7 +151,7 @@ func (s *StreamSession) Listen() (*StreamListener, error) {
 				return nil, err
 			}
 			_, port, _ := net.SplitHostPort(l.conn.Addr().String())
-			fmt.Fprintf(sam.conn, "STREAM FORWARD ID=%s PORT=%s SILENT=false\r\n", s.id, port)
+			fmt.Fprintf(sam.conn, "STREAM FORWARD ID=%s PORT=%s SILENT=false\n", s.id, port)
 			r := bufio.NewReader(sam.conn)
 			line, err := r.ReadString(10)
 			if err != nil {
