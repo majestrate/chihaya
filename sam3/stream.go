@@ -4,10 +4,10 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"strings"
-	"fmt"
 )
 
 // Represents a streaming session.
@@ -158,8 +158,8 @@ func (s *StreamSession) Listen() (*StreamListener, error) {
 				l.Close()
 				return nil, err
 			}
-			if ! strings.HasPrefix(line, "STREAM STATUS RESULT=OK") {
-				err = errors.New("bad response from i2p: "+line)
+			if !strings.HasPrefix(line, "STREAM STATUS RESULT=OK") {
+				err = errors.New("bad response from i2p: " + line)
 				l.Close()
 				return nil, err
 			}
@@ -204,7 +204,7 @@ func (l *StreamListener) Accept() (n net.Conn, err error) {
 			return &SAMConn{
 				laddr: l.laddr,
 				raddr: I2PAddr(addr),
-				conn: n,
+				conn:  n,
 			}, nil
 		}
 	}
