@@ -83,7 +83,7 @@ func Boot() {
 		servers = append(servers, api.NewServer(cfg, tkr))
 	}
 
-	l := cfg.NetConfig
+	l := cfg.NetConfig.NumListeners
 	if l <= 0 {
 		l = 1
 	}
