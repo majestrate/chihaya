@@ -83,33 +83,34 @@ func Boot() {
 		servers = append(servers, api.NewServer(cfg, tkr))
 	}
 
-	l := cfg.NetConfig.NumListeners
-	if l <= 0 {
-		l = 1
-	}
-	for l > 0 {
-		servers = append(servers, http.NewServer(cfg, tkr))
-		l--
-	}
+	servers = append(servers, http.NewServer(cfg, tkr))
 
 	var wg sync.WaitGroup
 	for _, srv := range servers {
-		wg.Add(1)
-
+		l := cfg.NetConfig.NumListeners
+		if l <= 0 {
+			l = 1
+		}
+		wg.Add(l)
 		// If you don't explicitly pass the server, every goroutine captures the
 		// last server in the list.
-		go func(srv server) {
+		go func(srv server, listeners int) {
 			for {
 				err := srv.Setup()
 				if err == nil {
 					defer wg.Done()
+					for listeners > 1 {
+						go srv.Serve()
+						listeners --
+				  }
 					srv.Serve()
 				} else {
 					glog.Error("Setup: ", err)
 					time.Sleep(time.Second)
 				}
 			}
-		}(srv)
+		}(srv, l)
+		
 	}
 
 	shutdown := make(chan os.Signal)
