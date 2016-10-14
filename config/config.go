@@ -55,6 +55,7 @@ type NetConfig struct {
 	DualStackedPeers bool   `json:"dualStackedPeers"`
 	RealIPHeader     string `json:"realIPHeader"`
 	RespectAF        bool   `json:"respectAF"`
+	NumListeners     int    `json:"listeners"`
 	SubnetConfig
 }
 
@@ -175,6 +176,7 @@ var DefaultConfig = Config{
 			AllowIPSpoofing:  true,
 			DualStackedPeers: true,
 			RespectAF:        false,
+			NumListeners:     8,
 		},
 
 		WhitelistConfig: WhitelistConfig{

@@ -83,7 +83,14 @@ func Boot() {
 		servers = append(servers, api.NewServer(cfg, tkr))
 	}
 
-	servers = append(servers, http.NewServer(cfg, tkr))
+	l := cfg.NetConfig
+	if l <= 0 {
+		l = 1
+	}
+	for l > 0 {
+		servers = append(servers, http.NewServer(cfg, tkr))
+		l--
+	}
 
 	var wg sync.WaitGroup
 	for _, srv := range servers {
