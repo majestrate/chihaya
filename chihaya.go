@@ -78,9 +78,10 @@ func Boot() {
 	}
 
 	var servers []server
+	var apiserv []server
 
 	if cfg.APIConfig.ListenAddr != "" {
-		servers = append(servers, api.NewServer(cfg, tkr))
+		apiserv = append(apiserv, api.NewServer(cfg, tkr))
 	}
 
 	servers = append(servers, http.NewServer(cfg, tkr))
@@ -91,7 +92,7 @@ func Boot() {
 		if l <= 0 {
 			l = 1
 		}
-		wg.Add(l)
+		wg.Add(1)
 		// If you don't explicitly pass the server, every goroutine captures the
 		// last server in the list.
 		go func(srv server, listeners int) {
@@ -110,7 +111,22 @@ func Boot() {
 				}
 			}
 		}(srv, l)
-		
+	}
+
+	for _, serv := range apiserv {
+		wg.Add(1)
+		go func(srv server) {
+			for {
+				err := srv.Setup()
+				if err == nil {
+					defer wg.Done()
+					srv.Serve()
+				} else {
+					glog.Error("Setup: ", err)
+					time.Sleep(time.Second)
+				}
+			}
+		}(serv)
 	}
 
 	shutdown := make(chan os.Signal)
