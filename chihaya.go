@@ -78,18 +78,9 @@ func Boot() {
 	}
 
 	var servers []server
-
-	if cfg.APIConfig.ListenAddr != "" {
-		servers = append(servers, api.NewServer(cfg, tkr))
-	}
-
-	servers = append(servers, http.NewServer(cfg, tkr))
-
 	var wg sync.WaitGroup
-	for _, srv := range servers {
-		wg.Add(1)
-		// If you don't explicitly pass the server, every goroutine captures the
-		// last server in the list.
+	if cfg.APIConfig.ListenAddr != "" {
+		apiserv := api.NewServer(cfg, tkr)
 		go func(srv server) {
 			for {
 				err := srv.Setup()
@@ -101,7 +92,35 @@ func Boot() {
 					time.Sleep(time.Second)
 				}
 			}
-		}(srv)
+		}(apiserv)
+	}
+
+	servers = append(servers, http.NewServer(cfg, tkr))
+
+	for _, srv := range servers {
+		wg.Add(1)
+		// If you don't explicitly pass the server, every goroutine captures the
+		// last server in the list.
+		l := cfg.NetConfig.NumListeners
+		if l <= 0 {
+			l = 1
+		}
+		go func(srv server, n int) {
+			for {
+				err := srv.Setup()
+				if err == nil {
+					defer wg.Done()
+					for n > 1 {
+						n--
+						go srv.Serve()
+					}
+					srv.Serve()
+				} else {
+					glog.Error("Setup: ", err)
+					time.Sleep(time.Second)
+				}
+			}
+		}(srv, l)
 	}
 
 	shutdown := make(chan os.Signal)
