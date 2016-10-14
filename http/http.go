@@ -147,12 +147,6 @@ func (s *Server) Setup() (err error) {
 	}
 
 	glog.V(0).Info("Starting to Listen for I2P Connections")
-
-	s.samListener, err = s.samSession.Listen()
-	if err != nil {
-		glog.Errorf("Could not listen on session with I2P: %s", err)
-		return
-	}
 	return
 }
 
@@ -165,9 +159,12 @@ func (s *Server) Serve() {
 		ReadTimeout:  s.config.HTTPConfig.ReadTimeout.Duration,
 		WriteTimeout: s.config.HTTPConfig.WriteTimeout.Duration,
 	}
-	// disable keepalive
-	serv.SetKeepAlivesEnabled(false)
-	err := serv.Serve(s.samListener)
+	l, err := s.samSession.Listen()
+	if err == nil {
+		// disable keepalive
+		serv.SetKeepAlivesEnabled(false)
+		err = serv.Serve(l)
+	}
 	glog.Error(err)
 	glog.Info("HTTP server shut down cleanly")
 }
