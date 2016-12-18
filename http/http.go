@@ -162,7 +162,7 @@ func (s *Server) Serve() {
 	l, err := s.samSession.Listen()
 	if err == nil {
 		// disable keepalive
-		serv.SetKeepAlivesEnabled(false)
+		serv.SetKeepAlivesEnabled(true)
 		err = serv.Serve(l)
 	}
 	glog.Error(err)

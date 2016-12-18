@@ -133,11 +133,20 @@ func (s *StreamSession) DialI2P(addr I2PAddr) (*SAMConn, error) {
 
 // create a new stream listener to accept inbound connections
 func (s *StreamSession) Listen() (*StreamListener, error) {
-	return &StreamListener{
+	l := &StreamListener{
 		session: s,
 		id:      s.id,
 		laddr:   s.keys.Addr(),
-	}, nil
+		accepted: make(chan acceptedConn, 128),
+		run: true,
+	}
+	go l.acceptLoop()
+	return l, nil
+}
+
+type acceptedConn struct {
+	c net.Conn
+	err error
 }
 
 type StreamListener struct {
@@ -147,6 +156,20 @@ type StreamListener struct {
 	id string
 	// our local address for this sam socket
 	laddr I2PAddr
+	// channel for accepted connection backlog
+	accepted chan acceptedConn
+	// run flag
+	run bool
+}
+
+func (l *StreamListener) acceptLoop() {
+	var err error
+	var n net.Conn
+	for err == nil || l.run {
+		n, err = l.AcceptI2P()
+		l.accepted <- acceptedConn{n, err}
+	}
+	close(l.accepted)
 }
 
 // get our address
@@ -163,7 +186,12 @@ func (l *StreamListener) Close() error {
 
 // implements net.Listener
 func (l *StreamListener) Accept() (n net.Conn, err error) {
-	n, err = l.AcceptI2P()
+	a, ok :=  <- l.accepted
+	if ! ok {
+		err = errors.New("i2p acceptor closed")
+		return
+	}
+	n, err = a.c, a.err
 	return
 }
 
