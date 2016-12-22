@@ -151,7 +151,8 @@ func (s *StreamSession) Listen(n int) (*StreamListener, error) {
 }
 
 type acceptedConn struct {
-	c net.Conn
+	c   net.Conn
+	err error
 }
 
 type StreamListener struct {
