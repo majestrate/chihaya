@@ -136,7 +136,8 @@ type SamConfig struct {
 
 // I2PConfig is the configuration for i2p tracker mode options
 type I2PConfig struct {
-	SAM SamConfig
+	SAM       SamConfig
+	Listeners int
 }
 
 // Config is the global configuration for an instance of Chihaya.

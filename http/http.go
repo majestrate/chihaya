@@ -159,10 +159,10 @@ func (s *Server) Serve() {
 		ReadTimeout:  s.config.HTTPConfig.ReadTimeout.Duration,
 		WriteTimeout: s.config.HTTPConfig.WriteTimeout.Duration,
 	}
-	l, err := s.samSession.Listen()
+	l, err := s.samSession.Listen(s.config.I2P.Listeners)
 	if err == nil {
 		// disable keepalive
-		serv.SetKeepAlivesEnabled(false)
+		serv.SetKeepAlivesEnabled(true)
 		err = serv.Serve(l)
 	}
 	glog.Error(err)
