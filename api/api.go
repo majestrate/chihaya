@@ -110,6 +110,8 @@ func newRouter(s *Server) *httprouter.Router {
 		r.DELETE("/clients/:clientID", makeHandler(s.delClient))
 	}
 
+	// get top torrent swarms
+	r.GET("/top/:num", makeHandler(s.getTopSwarms))
 	// get torrent info
 	r.GET("/torrents/:infohash", makeHandler(s.getTorrent))
 	// add torrent to backend

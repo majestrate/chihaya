@@ -44,6 +44,23 @@ func NewStorage(cfg *config.Config) *Storage {
 	return s
 }
 
+func (s *Storage) TopTorrents(n int) (t []*models.Torrent) {
+	t = make([]*models.Torrent, n)
+	for i := range s.shards {
+		shard := s.shards[i]
+		shard.RLock()
+		for _, torrent := range shard.torrents {
+			for idx := range t {
+				if t[idx].PeerCount() < torrent.PeerCount() {
+					t[idx] = torrent
+				}
+			}
+		}
+		shard.RUnlock()
+	}
+	return
+}
+
 func (s *Storage) DumpTorrents() (t []*models.Torrent) {
 	t = []*models.Torrent{}
 	for i := range s.shards {

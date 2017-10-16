@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"runtime"
+	"strconv"
 
 	"github.com/julienschmidt/httprouter"
 
@@ -29,6 +30,19 @@ func handleError(err error) (int, error) {
 		return http.StatusBadRequest, nil
 	}
 	return http.StatusInternalServerError, err
+}
+
+func (s *Server) getTopSwarms(w http.ResponseWriter, r *http.Request, p httprouter.Params) (int, error) {
+	var err error
+	var num int
+	num, err = strconv.Atoi(p.ByName("num"))
+	if err == nil {
+		torrents := s.tracker.Cache.TopTorrents(num)
+		w.Header().Set("Content-Type", jsonContentType)
+		e := json.NewEncoder(w)
+		err = e.Encode(torrents)
+	}
+	return handleError(err)
 }
 
 func (s *Server) check(w http.ResponseWriter, r *http.Request, p httprouter.Params) (int, error) {
