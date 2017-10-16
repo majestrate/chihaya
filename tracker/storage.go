@@ -51,8 +51,9 @@ func (s *Storage) TopTorrents(n int) (t []*models.Torrent) {
 		shard.RLock()
 		for _, torrent := range shard.torrents {
 			for idx := range t {
-				if t[idx].PeerCount() < torrent.PeerCount() {
+				if t[idx] == nil || t[idx].PeerCount() < torrent.PeerCount() {
 					t[idx] = torrent
+					break
 				}
 			}
 		}

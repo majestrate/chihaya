@@ -40,7 +40,7 @@ func (s *Server) getTopSwarms(w http.ResponseWriter, r *http.Request, p httprout
 		torrents := s.tracker.Cache.TopTorrents(num)
 		w.Header().Set("Content-Type", jsonContentType)
 		e := json.NewEncoder(w)
-		err = e.Encode(torrents)
+		return handleError(e.Encode(torrents))
 	}
 	return handleError(err)
 }
