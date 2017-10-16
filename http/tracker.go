@@ -53,8 +53,6 @@ func (s *Server) newAnnounce(r *http.Request, p httprouter.Params) (*models.Anno
 		return nil, models.ErrMalformedRequest
 	}
 
-	ep := models.Endpoint{dest.DestHash(), uint16(port)}
-
 	downloaded, err := q.Uint64("downloaded")
 	if err != nil {
 		return nil, models.ErrMalformedRequest
@@ -65,19 +63,21 @@ func (s *Server) newAnnounce(r *http.Request, p httprouter.Params) (*models.Anno
 		return nil, models.ErrMalformedRequest
 	}
 
-	return &models.Announce{
+	a := &models.Announce{
 		Config:     s.config,
 		Compact:    true,
 		Downloaded: downloaded,
 		Event:      event,
-		Dest:       ep,
 		Infohash:   infohash,
 		Left:       left,
 		NumWant:    numWant,
 		Passkey:    p.ByName("passkey"),
 		PeerID:     peerID,
 		Uploaded:   uploaded,
-	}, nil
+	}
+	a.Dest = dest
+	a.Port = uint16(port)
+	return a, nil
 }
 
 // newScrape parses an HTTP request and generates a models.Scrape.

@@ -45,19 +45,21 @@ func NewStorage(cfg *config.Config) *Storage {
 }
 
 func (s *Storage) TopTorrents(n int) (t []*models.Torrent) {
-	t = make([]*models.Torrent, n)
-	for i := range s.shards {
-		shard := s.shards[i]
-		shard.RLock()
-		for _, torrent := range shard.torrents {
-			for idx := range t {
-				if t[idx] == nil || t[idx].PeerCount() < torrent.PeerCount() {
-					t[idx] = torrent
-					break
+	if n > 0 {
+		t = make([]*models.Torrent, n)
+		for i := range s.shards {
+			shard := s.shards[i]
+			shard.RLock()
+			for _, torrent := range shard.torrents {
+				for idx := range t {
+					if t[idx] == nil || t[idx].PeerCount() < torrent.PeerCount() {
+						t[idx] = torrent
+						break
+					}
 				}
 			}
+			shard.RUnlock()
 		}
-		shard.RUnlock()
 	}
 	return
 }

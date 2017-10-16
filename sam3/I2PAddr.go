@@ -80,6 +80,11 @@ func DestHashFromString(str string) (dhash I2PDestHash, err error) {
 	return
 }
 
+// get byteslice of this desthash
+func (h I2PDestHash) Bytes() []byte {
+	return h[:]
+}
+
 // get string representation of i2p dest hash
 func (h I2PDestHash) String() string {
 	b32addr := make([]byte, 56)

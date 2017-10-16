@@ -86,8 +86,8 @@ func (pk PeerKey) Dest() (dhash i2p.I2PDestHash) {
 
 // Endpoint is an i2p destination hash with port optionally included
 type Endpoint struct {
-	Dest i2p.I2PDestHash `json:"-"`
-	Port uint16          `json:"port"`
+	Dest i2p.I2PAddr `json:"ip"`
+	Port uint16      `json:"port"`
 }
 
 // Peer represents a participant in a BitTorrent swarm.
@@ -104,7 +104,7 @@ type Peer struct {
 
 // Key returns a PeerKey for the given peer.
 func (p *Peer) Key() PeerKey {
-	return NewPeerKey(p.ID, p.Dest)
+	return NewPeerKeyForDest(p.ID, p.Dest)
 }
 
 // TorrentInfo holds all index metadata for a torrent on private trackers
@@ -151,19 +151,19 @@ type User struct {
 
 // Announce is an Announce by a Peer.
 type Announce struct {
+	Endpoint
+
 	Config *config.Config `json:"config"`
 
-	Compact    bool     `json:"compact"`
-	Downloaded uint64   `json:"downloaded"`
-	Event      string   `json:"event"`
-	Infohash   string   `json:"infohash"`
-	Dest       Endpoint `json:"-"`
-	Port       uint16   `json:"port"`
-	Left       uint64   `json:"left"`
-	NumWant    int      `json:"numwant"`
-	Passkey    string   `json:"passkey"`
-	PeerID     string   `json:"peer_id"`
-	Uploaded   uint64   `json:"uploaded"`
+	Compact    bool   `json:"compact"`
+	Downloaded uint64 `json:"downloaded"`
+	Event      string `json:"event"`
+	Infohash   string `json:"infohash"`
+	Left       uint64 `json:"left"`
+	NumWant    int    `json:"numwant"`
+	Passkey    string `json:"passkey"`
+	PeerID     string `json:"peer_id"`
+	Uploaded   uint64 `json:"uploaded"`
 
 	Torrent *Torrent `json:"-"`
 	User    *User    `json:"-"`
@@ -198,7 +198,7 @@ func (a *Announce) BuildPeer(u *User, t *Torrent) (err error) {
 		Left:         a.Left,
 		LastAnnounce: time.Now().Unix(),
 	}
-	copy(a.Peer.Dest[:], a.Dest.Dest[:])
+	a.Peer.Dest = a.Dest
 	a.Peer.Port = a.Port
 
 	if t != nil {
