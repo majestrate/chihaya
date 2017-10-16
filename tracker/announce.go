@@ -235,8 +235,8 @@ func newAnnounceResponse(ann *models.Announce) *models.AnnounceResponse {
 		Announce:    ann,
 		Complete:    seedCount,
 		Incomplete:  leechCount,
-		Interval:    ann.Config.Announce.Duration,
-		MinInterval: ann.Config.MinAnnounce.Duration,
+		Interval:    int64(ann.Config.Announce.Duration.Seconds()),
+		MinInterval: int64(ann.Config.MinAnnounce.Duration.Seconds()),
 		Compact:     true,
 	}
 

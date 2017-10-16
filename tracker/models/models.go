@@ -240,7 +240,7 @@ type AnnounceDelta struct {
 type AnnounceResponse struct {
 	Announce              *Announce
 	Complete, Incomplete  int
-	Interval, MinInterval time.Duration
+	Interval, MinInterval int64
 	Peers                 PeerList
 
 	Compact bool
