@@ -218,50 +218,61 @@ func (l *StreamListener) AcceptI2P() (*SAMConn, error) {
 	}
 	nc := s.conn
 	fmt.Fprintf(nc, "STREAM ACCEPT ID=%s SILENT=false\n", l.id)
-	r := bufio.NewReader(nc)
 	var line string
-	line, err = r.ReadString(10)
-	if err != nil {
-		return nil, err
-	}
-	scanner := bufio.NewScanner(strings.NewReader(line))
-	scanner.Split(bufio.ScanWords)
-	for scanner.Scan() {
-		switch scanner.Text() {
-		case "STREAM":
-		case "STATUS":
-			continue
-		case "RESULT=OK":
-			ln, err := r.ReadString(10)
-			if err != nil {
-				nc.Close()
-				return nil, err
+	var buff [1]byte
+	var n int
+	for err == nil {
+		n, err = nc.Read(buff[:])
+		if n == 1 {
+			if buff[0] == 10 {
+				scanner := bufio.NewScanner(strings.NewReader(line))
+				scanner.Split(bufio.ScanWords)
+				for scanner.Scan() {
+					switch scanner.Text() {
+					case "STREAM":
+					case "STATUS":
+						continue
+					case "RESULT=OK":
+						line = ""
+						for err == nil {
+							n, err = nc.Read(buff[:])
+							if n == 1 {
+								if buff[0] == 10 {
+									break
+								} else {
+									line += string(buff[:])
+								}
+							}
+						}
+						return &SAMConn{
+							laddr: l.laddr,
+							raddr: I2PAddr(line),
+							conn:  nc,
+						}, nil
+					case "RESULT=CANT_REACH_PEER":
+						nc.Close()
+						return nil, errors.New("Can not reach peer")
+					case "RESULT=I2P_ERROR":
+						nc.Close()
+						return nil, errors.New("I2P internal error")
+					case "RESULT=INVALID_KEY":
+						nc.Close()
+						return nil, errors.New("Invalid key")
+					case "RESULT=INVALID_ID":
+						nc.Close()
+						return nil, errors.New("Invalid tunnel ID")
+					case "RESULT=TIMEOUT":
+						nc.Close()
+						return nil, errors.New("Timeout")
+					default:
+						nc.Close()
+						return nil, errors.New("Unknown error: " + scanner.Text())
+					}
+				}
+			} else {
+				line += string(buff[:])
 			}
-			dest := strings.Trim(ln, "\n")
-			return &SAMConn{
-				laddr: l.laddr,
-				raddr: I2PAddr(dest),
-				conn:  nc,
-			}, nil
-		case "RESULT=CANT_REACH_PEER":
-			nc.Close()
-			return nil, errors.New("Can not reach peer")
-		case "RESULT=I2P_ERROR":
-			nc.Close()
-			return nil, errors.New("I2P internal error")
-		case "RESULT=INVALID_KEY":
-			nc.Close()
-			return nil, errors.New("Invalid key")
-		case "RESULT=INVALID_ID":
-			nc.Close()
-			return nil, errors.New("Invalid tunnel ID")
-		case "RESULT=TIMEOUT":
-			nc.Close()
-			return nil, errors.New("Timeout")
-		default:
-			nc.Close()
-			return nil, errors.New("Unknown error: " + scanner.Text())
 		}
 	}
-	panic("should never reach this point in I2PAccept()")
+	return nil, err
 }
