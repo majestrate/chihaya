@@ -244,6 +244,7 @@ func (l *StreamListener) AcceptI2P() (*SAMConn, error) {
 								}
 							}
 						}
+						nc.(*net.TCPConn).SetLinger(0)
 						return &SAMConn{
 							laddr: l.laddr,
 							raddr: I2PAddr(line),
