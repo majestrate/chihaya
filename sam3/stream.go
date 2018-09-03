@@ -2,10 +2,8 @@ package sam3
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"strings"
 )
@@ -56,79 +54,6 @@ func (s *StreamSession) Lookup(name string) (I2PAddr, error) {
 		return addr, err
 	}
 	return I2PAddr(""), err
-}
-
-// implement net.Dialer
-func (s *StreamSession) Dial(n, addr string) (c net.Conn, err error) {
-
-	var i2paddr I2PAddr
-	var host string
-	host, _, err = net.SplitHostPort(addr)
-	if err == nil {
-		// check for name
-		if strings.HasSuffix(host, ".b32.i2p") || strings.HasSuffix(host, ".i2p") {
-			// name lookup
-			i2paddr, err = s.Lookup(host)
-		} else {
-			// probably a destination
-			i2paddr = I2PAddr(host)
-		}
-		if err == nil {
-			return s.DialI2P(i2paddr)
-		}
-	}
-	return
-}
-
-// Dials to an I2P destination and returns a SAMConn, which implements a net.Conn.
-func (s *StreamSession) DialI2P(addr I2PAddr) (*SAMConn, error) {
-	sam, err := NewSAM(s.samAddr)
-	if err != nil {
-		return nil, err
-	}
-	conn := sam.conn
-	_, err = conn.Write([]byte("STREAM CONNECT ID=" + s.id + " DESTINATION=" + addr.Base64() + " SILENT=false\n"))
-	if err != nil {
-		conn.Close()
-		return nil, err
-	}
-	buf := make([]byte, 4096)
-	n, err := conn.Read(buf)
-	if err != nil && err != io.EOF {
-		conn.Close()
-		return nil, err
-	}
-	scanner := bufio.NewScanner(bytes.NewReader(buf[:n]))
-	scanner.Split(bufio.ScanWords)
-	for scanner.Scan() {
-		switch scanner.Text() {
-		case "STREAM":
-			continue
-		case "STATUS":
-			continue
-		case "RESULT=OK":
-			return &SAMConn{s.keys.addr, addr, conn}, nil
-		case "RESULT=CANT_REACH_PEER":
-			conn.Close()
-			return nil, errors.New("Can not reach peer")
-		case "RESULT=I2P_ERROR":
-			conn.Close()
-			return nil, errors.New("I2P internal error")
-		case "RESULT=INVALID_KEY":
-			conn.Close()
-			return nil, errors.New("Invalid key")
-		case "RESULT=INVALID_ID":
-			conn.Close()
-			return nil, errors.New("Invalid tunnel ID")
-		case "RESULT=TIMEOUT":
-			conn.Close()
-			return nil, errors.New("Timeout")
-		default:
-			conn.Close()
-			return nil, errors.New("Unknown error: " + scanner.Text() + " : " + string(buf[:n]))
-		}
-	}
-	panic("sam3 go library error in StreamSession.DialI2P()")
 }
 
 // create a new stream listener to accept inbound connections
@@ -219,60 +144,48 @@ func (l *StreamListener) AcceptI2P() (*SAMConn, error) {
 	nc := s.conn
 	fmt.Fprintf(nc, "STREAM ACCEPT ID=%s SILENT=false\n", l.id)
 	var line string
-	var buff [1]byte
-	var n int
-	for err == nil {
-		n, err = nc.Read(buff[:])
-		if n == 1 {
-			if buff[0] == 10 {
-				scanner := bufio.NewScanner(strings.NewReader(line))
-				scanner.Split(bufio.ScanWords)
-				for scanner.Scan() {
-					switch scanner.Text() {
-					case "STREAM":
-					case "STATUS":
-						continue
-					case "RESULT=OK":
-						line = ""
-						for err == nil {
-							n, err = nc.Read(buff[:])
-							if n == 1 {
-								if buff[0] == 10 {
-									break
-								} else {
-									line += string(buff[:])
-								}
-							}
-						}
-						nc.(*net.TCPConn).SetLinger(0)
-						return &SAMConn{
-							laddr: l.laddr,
-							raddr: I2PAddr(line),
-							conn:  nc,
-						}, nil
-					case "RESULT=CANT_REACH_PEER":
-						nc.Close()
-						return nil, errors.New("Can not reach peer")
-					case "RESULT=I2P_ERROR":
-						nc.Close()
-						return nil, errors.New("I2P internal error")
-					case "RESULT=INVALID_KEY":
-						nc.Close()
-						return nil, errors.New("Invalid key")
-					case "RESULT=INVALID_ID":
-						nc.Close()
-						return nil, errors.New("Invalid tunnel ID")
-					case "RESULT=TIMEOUT":
-						nc.Close()
-						return nil, errors.New("Timeout")
-					default:
-						nc.Close()
-						return nil, errors.New("Unknown error: " + scanner.Text())
-					}
-				}
-			} else {
-				line += string(buff[:])
+	line, err = readLine(nc)
+	if err != nil {
+		nc.Close()
+		return nil, err
+	}
+	scanner := bufio.NewScanner(strings.NewReader(line))
+	scanner.Split(bufio.ScanWords)
+	for scanner.Scan() {
+		switch scanner.Text() {
+		case "STREAM":
+		case "STATUS":
+			continue
+		case "RESULT=OK":
+			line, err = readLine(nc)
+			if err != nil {
+				nc.Close()
+				return nil, err
 			}
+			nc.(*net.TCPConn).SetLinger(0)
+			return &SAMConn{
+				laddr: l.laddr,
+				raddr: I2PAddr(line),
+				conn:  nc,
+			}, nil
+		case "RESULT=CANT_REACH_PEER":
+			nc.Close()
+			return nil, errors.New("Can not reach peer")
+		case "RESULT=I2P_ERROR":
+			nc.Close()
+			return nil, errors.New("I2P internal error")
+		case "RESULT=INVALID_KEY":
+			nc.Close()
+			return nil, errors.New("Invalid key")
+		case "RESULT=INVALID_ID":
+			nc.Close()
+			return nil, errors.New("Invalid tunnel ID")
+		case "RESULT=TIMEOUT":
+			nc.Close()
+			return nil, errors.New("Timeout")
+		default:
+			nc.Close()
+			return nil, errors.New("Unknown error: " + line)
 		}
 	}
 	return nil, err
