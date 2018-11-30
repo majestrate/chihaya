@@ -48,7 +48,7 @@ func (s *Server) serveScrape(w http.ResponseWriter, r *http.Request, p httproute
 }
 
 func (s *Server) serveIndex(w http.ResponseWriter, r *http.Request, p httprouter.Params) (int, error) {
-	addr := s.samKeys.Addr().Base32()
+	addr := s.ServerAddr()
 	txt := fmt.Sprintf("bittorrent open tracker announce url http://%s/announce\n", addr)
 	_, err := io.WriteString(w, txt)
 	txt = fmt.Sprintf("to use:\n\nmktorrent -a http://%s/announce somedirectory\n", addr)

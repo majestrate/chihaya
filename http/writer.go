@@ -5,7 +5,6 @@
 package http
 
 import (
-	"bytes"
 	"net/http"
 
 	"github.com/majestrate/chihaya/tracker/models"
@@ -33,13 +32,8 @@ func (w *Writer) WriteAnnounce(res *models.AnnounceResponse) error {
 		"incomplete":   res.Incomplete,
 		"interval":     res.Interval,
 		"min interval": res.MinInterval,
-	}
-	if res.Compact {
-		dict["compact"] = 1
-		dict["peers"] = compactPeers(res.Peers)
-	} else {
-		dict["compact"] = 0
-		dict["peers"] = res.Peers
+		"compact":      0,
+		"peers":        res.Peers,
 	}
 
 	w.Header().Set("Content-Type", "text/plain")
@@ -56,14 +50,6 @@ func (w *Writer) WriteScrape(res *models.ScrapeResponse) error {
 	w.Header().Set("Content-Type", "text/plain")
 	bencoder := bencode.NewEncoder(w)
 	return bencoder.Encode(dict)
-}
-
-func compactPeers(peers models.PeerList) []byte {
-	var compactPeers bytes.Buffer
-	for _, peer := range peers {
-		compactPeers.Write(peer.Dest.DestHash().Bytes())
-	}
-	return compactPeers.Bytes()
 }
 
 func filesDict(torrents []*models.Torrent) map[string]interface{} {

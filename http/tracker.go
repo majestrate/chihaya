@@ -5,12 +5,11 @@
 package http
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"strconv"
-
-	"github.com/golang/glog"
-
-	i2p "github.com/majestrate/chihaya/sam3"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
 
@@ -48,7 +47,7 @@ func (s *Server) newAnnounce(r *http.Request, p httprouter.Params) (*models.Anno
 		return nil, models.ErrMalformedRequest
 	}
 
-	dest, err := requestDest(q, r)
+	privAddr, pubAddr, err := s.getRealAddress(q, r)
 	if err != nil {
 		return nil, models.ErrMalformedRequest
 	}
@@ -75,7 +74,8 @@ func (s *Server) newAnnounce(r *http.Request, p httprouter.Params) (*models.Anno
 		PeerID:     peerID,
 		Uploaded:   uploaded,
 	}
-	a.Dest = dest
+	a.PrivAddr = privAddr
+	a.PubAddr = pubAddr
 	a.Port = uint16(port)
 	return a, nil
 }
@@ -116,13 +116,17 @@ func requestedPeerCount(q *query.Query, fallback int) int {
 	return fallback
 }
 
-// obtain the "real" i2p destination from the remote request
-func requestDest(q *query.Query, r *http.Request) (dest i2p.I2PAddr, err error) {
-	addr := r.RemoteAddr
-	dest, err = i2p.NewI2PAddrFromString(addr)
-
+// obtain the "real" address from a remote connection
+func (s *Server) getRealAddress(q *query.Query, r *http.Request) (string, string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	addrs, err := s.network.ReverseDNS(ctx, r.RemoteAddr)
 	if err != nil {
-		glog.Errorf("bad destination in announce: %s", addr)
+		return "", "", err
 	}
-	return
+	if len(addrs) == 0 {
+		return "", "", errors.New("no reverse dns provided")
+	}
+	priv, pub := s.network.GetPublicPrivateAddrs(addrs[0], r.RemoteAddr)
+	return priv, pub, nil
 }

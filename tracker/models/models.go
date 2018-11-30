@@ -12,9 +12,6 @@ import (
 	"time"
 
 	"github.com/majestrate/chihaya/config"
-
-	// for i2p announces
-	i2p "github.com/majestrate/chihaya/sam3"
 )
 
 var (
@@ -62,14 +59,9 @@ type PeerList []Peer
 // PeerKey is the key used to uniquely identify a peer in a swarm.
 type PeerKey string
 
-// NewPeerKey creates a properly formatted PeerKey given full i2p destination
-func NewPeerKeyForDest(peerID string, addr i2p.I2PAddr) PeerKey {
-	return NewPeerKey(peerID, addr.DestHash())
-}
-
-// NewPeerKey creates a properly formatted PeerKey given an i2p desthash
-func NewPeerKey(peerID string, dhash i2p.I2PDestHash) PeerKey {
-	return PeerKey(fmt.Sprintf("%s//%s", peerID, dhash))
+// NewPeerKey creates a properly formatted PeerKey given private and public addresses
+func NewPeerKey(peerID, priv, pub string) PeerKey {
+	return PeerKey(fmt.Sprintf("%s//%s//%s", peerID, priv, pub))
 }
 
 // PeerID returns the PeerID section of a PeerKey.
@@ -77,17 +69,16 @@ func (pk PeerKey) PeerID() string {
 	return strings.Split(string(pk), "//")[0]
 }
 
-// Dest returns the i2p destination hash of a PeerKey
-func (pk PeerKey) Dest() (dhash i2p.I2PDestHash) {
-	str := strings.Split(string(pk), "//")[1]
-	dhash, _ = i2p.DestHashFromString(str)
-	return
+// Dest returns the address of a peer key
+func (pk PeerKey) Addr() string {
+	return strings.Split(string(pk), "//")[2]
 }
 
-// Endpoint is an i2p destination hash with port optionally included
+// Endpoint is a network endpoint
 type Endpoint struct {
-	Dest i2p.I2PAddr `json:"ip"`
-	Port uint16      `json:"port"`
+	PubAddr  string `json:"pubAddr"`
+	PrivAddr string `json:"privAddr"`
+	Port     uint16 `json:"port"`
 }
 
 // Peer represents a participant in a BitTorrent swarm.
@@ -104,7 +95,7 @@ type Peer struct {
 
 // Key returns a PeerKey for the given peer.
 func (p *Peer) Key() PeerKey {
-	return NewPeerKeyForDest(p.ID, p.Dest)
+	return NewPeerKey(p.ID, p.PrivAddr, p.PubAddr)
 }
 
 // TorrentInfo holds all index metadata for a torrent on private trackers
@@ -198,7 +189,8 @@ func (a *Announce) BuildPeer(u *User, t *Torrent) (err error) {
 		Left:         a.Left,
 		LastAnnounce: time.Now().Unix(),
 	}
-	a.Peer.Dest = a.Dest
+	a.Peer.PubAddr = a.PubAddr
+	a.Peer.PrivAddr = a.PrivAddr
 	a.Peer.Port = a.Port
 
 	if t != nil {

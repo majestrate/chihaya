@@ -138,6 +138,11 @@ type SamConfig struct {
 type I2PConfig struct {
 	SAM       SamConfig
 	Listeners int
+	Enabled   bool
+}
+
+type LokinetConfig struct {
+	ResolverAddr string
 }
 
 // Config is the global configuration for an instance of Chihaya.
@@ -148,7 +153,8 @@ type Config struct {
 	UDPConfig
 	DriverConfig
 	StatsConfig
-	I2P I2PConfig
+	I2P     I2PConfig
+	Lokinet LokinetConfig
 }
 
 // DefaultConfig is a configuration that can be used as a fallback value.
@@ -160,6 +166,7 @@ var DefaultConfig = Config{
 			Opts:    make(map[string]string),
 			Keyfile: "chihaya-i2p-privkey.dat",
 		},
+		Enabled: false,
 	},
 	TrackerConfig: TrackerConfig{
 		CreateOnAnnounce:      true,

@@ -2,6 +2,7 @@ package sam3
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -11,11 +12,12 @@ import (
 
 // Represents a streaming session.
 type StreamSession struct {
-	samAddr   string      // address to the sam bridge (ipv4:port)
-	id        string      // tunnel name
-	conn      net.Conn    // connection to sam
-	keys      I2PKeys     // i2p destination keys
-	listeners []io.Closer // active SteamListeners
+	samAddr   string              // address to the sam bridge (ipv4:port)
+	id        string              // tunnel name
+	conn      net.Conn            // connection to sam
+	keys      I2PKeys             // i2p destination keys
+	listeners []io.Closer         // active SteamListeners
+	lookups   chan *lookupRequest // name lookup channel
 }
 
 // Returns the local tunnel name of the I2P tunnel used for the stream session
@@ -57,18 +59,79 @@ func (sam *SAM) NewStreamSession(id string, keys I2PKeys, options []string) (*St
 	if err != nil {
 		return nil, err
 	}
-	return &StreamSession{sam.address, id, conn, keys, []io.Closer{}}, nil
+	s := &StreamSession{sam.address, id, conn, keys, []io.Closer{}, make(chan *lookupRequest)}
+	go s.runLookups()
+	return s, nil
 }
 
-// lookup name, convienence function
-func (s *StreamSession) Lookup(name string) (I2PAddr, error) {
-	sam, err := NewSAM(s.samAddr)
-	if err == nil {
-		addr, err := sam.Lookup(name)
-		sam.Close()
-		return addr, err
+func (s *StreamSession) runLookups() {
+	for s.IsOpen() {
+		s.doNameLookup(<-s.lookups)
 	}
-	return I2PAddr(""), err
+}
+
+// lookup name
+func (s *StreamSession) Lookup(name string) (I2PAddr, error) {
+	lookup := &lookupRequest{
+		name: name,
+		resp: make(chan lookupResult),
+	}
+	s.lookups <- lookup
+	r := <-lookup.resp
+	return r.addr, r.err
+}
+
+type lookupRequest struct {
+	name string
+	resp chan lookupResult
+}
+
+type lookupResult struct {
+	addr I2PAddr
+	err  error
+}
+
+func (ss *StreamSession) doNameLookup(req *lookupRequest) {
+	if _, err := ss.conn.Write([]byte("NAMING LOOKUP NAME=" + req.name + "\n")); err != nil {
+		ss.Close()
+		req.resp <- lookupResult{I2PAddr(""), err}
+		return
+	}
+	buf := make([]byte, 4096)
+	n, err := ss.conn.Read(buf)
+	if err != nil {
+		ss.Close()
+		req.resp <- lookupResult{I2PAddr(""), err}
+		return
+	}
+	if n <= 13 || !strings.HasPrefix(string(buf[:n]), "NAMING REPLY ") {
+		req.resp <- lookupResult{I2PAddr(""), errors.New("Failed to parse.")}
+		return
+	}
+	s := bufio.NewScanner(bytes.NewReader(buf[13:n]))
+	s.Split(bufio.ScanWords)
+
+	errStr := ""
+	for s.Scan() {
+		text := s.Text()
+		if text == "RESULT=OK" {
+			continue
+		} else if text == "RESULT=INVALID_KEY" {
+			errStr += "Invalid key."
+		} else if text == "RESULT=KEY_NOT_FOUND" {
+			errStr += "Unable to resolve " + req.name
+		} else if text == "NAME="+req.name {
+			continue
+		} else if strings.HasPrefix(text, "VALUE=") {
+			req.resp <- lookupResult{I2PAddr(text[6:]), nil}
+			return
+		} else if strings.HasPrefix(text, "MESSAGE=") {
+			errStr += " " + text[8:]
+		} else {
+			continue
+		}
+	}
+	req.resp <- lookupResult{I2PAddr(""), errors.New(errStr)}
 }
 
 // create a new stream listener to accept inbound connections
