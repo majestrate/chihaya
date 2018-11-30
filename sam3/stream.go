@@ -4,16 +4,18 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"strings"
 )
 
 // Represents a streaming session.
 type StreamSession struct {
-	samAddr string   // address to the sam bridge (ipv4:port)
-	id      string   // tunnel name
-	conn    net.Conn // connection to sam
-	keys    I2PKeys  // i2p destination keys
+	samAddr   string      // address to the sam bridge (ipv4:port)
+	id        string      // tunnel name
+	conn      net.Conn    // connection to sam
+	keys      I2PKeys     // i2p destination keys
+	listeners []io.Closer // active SteamListeners
 }
 
 // Returns the local tunnel name of the I2P tunnel used for the stream session
@@ -21,8 +23,21 @@ func (ss StreamSession) ID() string {
 	return ss.id
 }
 
+func (ss *StreamSession) IsOpen() bool {
+	return ss.conn != nil
+}
+
 func (ss *StreamSession) Close() error {
-	return ss.conn.Close()
+	for idx := range ss.listeners {
+		ss.listeners[idx].Close()
+	}
+	ss.listeners = []io.Closer{}
+	if ss.conn == nil {
+		return nil
+	}
+	err := ss.conn.Close()
+	ss.conn = nil
+	return err
 }
 
 // Returns the I2P destination (the address) of the stream session
@@ -42,7 +57,7 @@ func (sam *SAM) NewStreamSession(id string, keys I2PKeys, options []string) (*St
 	if err != nil {
 		return nil, err
 	}
-	return &StreamSession{sam.address, id, conn, keys}, nil
+	return &StreamSession{sam.address, id, conn, keys, []io.Closer{}}, nil
 }
 
 // lookup name, convienence function
@@ -65,6 +80,7 @@ func (s *StreamSession) Listen(n int) (*StreamListener, error) {
 		accepted: make(chan acceptedConn, 128),
 		run:      true,
 	}
+	s.listeners = append(s.listeners, l)
 	if n <= 0 {
 		n = 1
 	}
@@ -94,14 +110,15 @@ type StreamListener struct {
 }
 
 func (l *StreamListener) acceptLoop() {
-	var err error
-	var n net.Conn
-	for err == nil || l.run {
-		n, err = l.AcceptI2P()
+	for l.run && l.session.IsOpen() {
+		n, err := l.AcceptI2P()
 		if l.accepted != nil {
-			l.accepted <- acceptedConn{n, err}
+			if err == nil {
+				l.accepted <- acceptedConn{n, nil}
+				continue
+			}
 		} else {
-			n.Close()
+			return
 		}
 	}
 }
