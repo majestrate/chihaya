@@ -143,6 +143,8 @@ func (s *Server) Serve() {
 		if err == nil {
 			glog.Infof("Serving on %s", s.addr)
 			err = serv.Serve(l)
+		} else {
+			l.Close()
 		}
 	}
 	glog.Error(err)

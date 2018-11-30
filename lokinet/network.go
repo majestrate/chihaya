@@ -13,7 +13,7 @@ func NewLokiNetwork(addr string) *Network {
 	return &Network{
 		resolver: net.Resolver{
 			Dial: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				var d *net.Dialer
+				var d net.Dialer
 				return d.DialContext(ctx, "udp", addr)
 			},
 		},
