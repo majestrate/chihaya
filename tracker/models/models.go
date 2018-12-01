@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/majestrate/chihaya/config"
+	"github.com/zeebo/bencode"
 )
 
 var (
@@ -91,6 +92,14 @@ type Peer struct {
 	Left         uint64 `json:"left"`
 	LastAnnounce int64  `json:"lastAnnounce"`
 	Endpoint
+}
+
+func (p *Peer) MarshalBencode() ([]byte, error) {
+	return bencode.EncodeBytes(map[string]interface{}{
+		"peer id": p.ID,
+		"ip":      p.PubAddr,
+		"port":    p.Port,
+	})
 }
 
 // Key returns a PeerKey for the given peer.
