@@ -16,4 +16,6 @@ type Network interface {
 	ForwardDNS(c context.Context, h string) ([]net.Addr, error)
 	// get pub/priv addresses
 	GetPublicPrivateAddrs(reverse, forward string) (string, string)
+	// get public address for listener
+	PublicAddr(c context.Context, l net.Listener) (string, error)
 }

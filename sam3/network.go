@@ -80,3 +80,8 @@ func (n *Network) ForwardDNS(c context.Context, h string) ([]net.Addr, error) {
 	}
 	return []net.Addr{addr}, nil
 }
+
+func (n *Network) PublicAddr(c context.Context, l net.Listener) (string, error) {
+	addr := I2PAddr(l.Addr().String())
+	return addr.Base32(), nil
+}

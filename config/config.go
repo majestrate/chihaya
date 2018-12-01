@@ -142,7 +142,7 @@ type I2PConfig struct {
 }
 
 type LokinetConfig struct {
-	ResolverAddr string
+	ResolverAddr string `json:"dns"`
 }
 
 // Config is the global configuration for an instance of Chihaya.
@@ -154,11 +154,14 @@ type Config struct {
 	DriverConfig
 	StatsConfig
 	I2P     I2PConfig
-	Lokinet LokinetConfig
+	Lokinet LokinetConfig `json:"lokinet"`
 }
 
 // DefaultConfig is a configuration that can be used as a fallback value.
 var DefaultConfig = Config{
+	Lokinet: LokinetConfig{
+		ResolverAddr: "127.0.0.1:1153",
+	},
 	I2P: I2PConfig{
 		SAM: SamConfig{
 			Addr:    "127.0.0.1:7656",

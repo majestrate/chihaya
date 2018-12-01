@@ -104,8 +104,8 @@ func Boot() {
 					srv.Serve()
 				} else {
 					glog.Error("Setup: ", err)
-					time.Sleep(time.Second)
 				}
+				time.Sleep(time.Second)
 			}
 		}(srv)
 	}

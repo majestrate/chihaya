@@ -117,14 +117,11 @@ func (s *Server) Setup() (err error) {
 	return s.network.Setup()
 }
 
-func (s *Server) resolveName(l net.Listener) error {
+func (s *Server) resolveName(l net.Listener) (err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	addrs, err := s.network.ReverseDNS(ctx, l.Addr().String())
-	if err == nil && len(addrs) > 0 {
-		s.addr = addrs[0]
-	}
-	return err
+	s.addr, err = s.network.PublicAddr(ctx, l)
+	return
 }
 
 // Serve runs an HTTP server, blocking until the server has shut down.
@@ -135,13 +132,14 @@ func (s *Server) Serve() {
 		ReadTimeout:  s.config.HTTPConfig.ReadTimeout.Duration,
 		WriteTimeout: s.config.HTTPConfig.WriteTimeout.Duration,
 	}
-	l, err := s.network.Listen("tcp", s.config.HTTPConfig.ListenAddr)
+	laddr := s.config.HTTPConfig.ListenAddr
+	l, err := s.network.Listen("tcp", laddr)
 	if err == nil {
 		// disable keepalive
 		serv.SetKeepAlivesEnabled(true)
 		err = s.resolveName(l)
 		if err == nil {
-			glog.Infof("Serving on %s", s.addr)
+			glog.Infof("Serving on %s bound at %s", s.addr, l.Addr())
 			err = serv.Serve(l)
 		} else {
 			l.Close()
