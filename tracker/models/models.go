@@ -7,7 +7,6 @@
 package models
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -60,30 +59,30 @@ type PeerList []Peer
 // PeerKey is the key used to uniquely identify a peer in a swarm.
 type PeerKey string
 
-// NewPeerKey creates a properly formatted PeerKey given private and public addresses
-func NewPeerKey(peerID, priv, pub string) PeerKey {
-	return PeerKey(fmt.Sprintf("%s//%s//%s", peerID, priv, pub))
+// internal delimiter for peer key
+const peerKeyDelim = "//"
+
+// NewPeerKey creates a properly formatted PeerKey given public addresses
+func NewPeerKey(peerID, pub string) PeerKey {
+	return PeerKey(pub + peerKeyDelim + peerID)
 }
 
 // PeerID returns the PeerID section of a PeerKey.
 func (pk PeerKey) PeerID() string {
-	return strings.Split(string(pk), "//")[0]
+	k := string(pk)
+	idx := strings.Index(k, peerKeyDelim)
+	return k[idx+len(peerKeyDelim):]
 }
 
-// Dest returns the address of a peer key
+// Addr returns the address of a peer key
 func (pk PeerKey) Addr() string {
-	return strings.Split(string(pk), "//")[2]
-}
-
-// Endpoint is a network endpoint
-type Endpoint struct {
-	PubAddr  string `json:"pubAddr"`
-	PrivAddr string `json:"privAddr"`
-	Port     uint16 `json:"port"`
+	return strings.Split(string(pk), peerKeyDelim)[0]
 }
 
 // Peer represents a participant in a BitTorrent swarm.
 type Peer struct {
+	IP           string `json:"ip"`
+	Port         int    `json:"port"`
 	ID           string `json:"id"`
 	UserID       uint64 `json:"userId"`
 	TorrentID    uint64 `json:"torrentId"`
@@ -91,20 +90,20 @@ type Peer struct {
 	Downloaded   uint64 `json:"downloaded"`
 	Left         uint64 `json:"left"`
 	LastAnnounce int64  `json:"lastAnnounce"`
-	Endpoint
 }
 
+// MarshalBencode implements bencode writing format
 func (p *Peer) MarshalBencode() ([]byte, error) {
 	return bencode.EncodeBytes(map[string]interface{}{
 		"peer id": p.ID,
-		"ip":      p.PubAddr,
+		"ip":      p.IP,
 		"port":    p.Port,
 	})
 }
 
 // Key returns a PeerKey for the given peer.
 func (p *Peer) Key() PeerKey {
-	return NewPeerKey(p.ID, p.PrivAddr, p.PubAddr)
+	return NewPeerKey(p.ID, p.IP)
 }
 
 // TorrentInfo holds all index metadata for a torrent on private trackers
@@ -151,8 +150,6 @@ type User struct {
 
 // Announce is an Announce by a Peer.
 type Announce struct {
-	Endpoint
-
 	Config *config.Config `json:"config"`
 
 	Compact    bool   `json:"compact"`
@@ -164,6 +161,9 @@ type Announce struct {
 	Passkey    string `json:"passkey"`
 	PeerID     string `json:"peer_id"`
 	Uploaded   uint64 `json:"uploaded"`
+
+	IP   string `json:"ip"`
+	Port int    `json:"port"`
 
 	Torrent *Torrent `json:"-"`
 	User    *User    `json:"-"`
@@ -197,10 +197,9 @@ func (a *Announce) BuildPeer(u *User, t *Torrent) (err error) {
 		Downloaded:   a.Downloaded,
 		Left:         a.Left,
 		LastAnnounce: time.Now().Unix(),
+		IP:           a.IP,
+		Port:         a.Port,
 	}
-	a.Peer.PubAddr = a.PubAddr
-	a.Peer.PrivAddr = a.PrivAddr
-	a.Peer.Port = a.Port
 
 	if t != nil {
 		a.Peer.TorrentID = t.ID

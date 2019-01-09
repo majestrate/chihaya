@@ -105,5 +105,5 @@ func (pm *PeerMap) AppendPeers(peers PeerList, a *Announce, wanted int) (ls Peer
 
 // peersEquivalent checks if two peers represent the same entity.
 func peersEquivalent(a, b *Peer) bool {
-	return a.ID == b.ID || a.UserID != 0 && a.UserID == b.UserID
+	return a.ID == b.ID || (a.UserID != 0 && a.UserID == b.UserID)
 }

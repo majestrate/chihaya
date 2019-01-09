@@ -47,7 +47,7 @@ func (s *Server) newAnnounce(r *http.Request, p httprouter.Params) (*models.Anno
 		return nil, models.ErrMalformedRequest
 	}
 
-	privAddr, pubAddr, err := s.getRealAddress(q, r)
+	addr, err := s.getRealAddress(q, r)
 	if err != nil {
 		return nil, models.ErrMalformedRequest
 	}
@@ -62,9 +62,18 @@ func (s *Server) newAnnounce(r *http.Request, p httprouter.Params) (*models.Anno
 		return nil, models.ErrMalformedRequest
 	}
 
+	compact := uint64(0)
+	_, ok := q.Params["compact"]
+	if ok {
+		compact, err = q.Uint64("compact")
+		if err != nil {
+			return nil, models.ErrMalformedRequest
+		}
+	}
+
 	a := &models.Announce{
 		Config:     s.config,
-		Compact:    true,
+		Compact:    compact == uint64(1),
 		Downloaded: downloaded,
 		Event:      event,
 		Infohash:   infohash,
@@ -74,8 +83,7 @@ func (s *Server) newAnnounce(r *http.Request, p httprouter.Params) (*models.Anno
 		PeerID:     peerID,
 		Uploaded:   uploaded,
 	}
-	a.PrivAddr = privAddr
-	a.PubAddr = pubAddr
+	a.Addr = addr
 	a.Port = uint16(port)
 	return a, nil
 }
@@ -117,16 +125,27 @@ func requestedPeerCount(q *query.Query, fallback int) int {
 }
 
 // obtain the "real" address from a remote connection
-func (s *Server) getRealAddress(q *query.Query, r *http.Request) (string, string, error) {
+func (s *Server) getRealAddress(q *query.Query, r *http.Request) (string, error) {
+	var addr string
+	if s.config != nil && s.config.RealIPHeader != "" {
+		addr = r.Header.Get(s.config.RealIPHeader)
+	}
+	if addr == "" {
+		addr = r.RemoteAddr
+	}
+	return s.lookupRealAddress(addr)
+}
+
+func (s *Server) lookupRealAddress(addr string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	addrs, err := s.network.ReverseDNS(ctx, r.RemoteAddr)
+	addrs, err := s.network.ReverseDNS(ctx, addr)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 	if len(addrs) == 0 {
-		return "", "", errors.New("no reverse dns provided")
+		return "", errors.New("no reverse dns provided")
 	}
-	priv, pub := s.network.GetPublicPrivateAddrs(addrs[0], r.RemoteAddr)
-	return priv, pub, nil
+	_, pub := s.network.GetPublicPrivateAddrs(addrs[0], addr)
+	return pub, nil
 }

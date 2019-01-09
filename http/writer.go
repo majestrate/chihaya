@@ -27,12 +27,16 @@ func (w *Writer) WriteError(err error) error {
 
 // WriteAnnounce writes a bencode dict representation of an AnnounceResponse.
 func (w *Writer) WriteAnnounce(res *models.AnnounceResponse) error {
+	compact := 0
+	if res.Compact {
+		compact = 1
+	}
 	dict := map[string]interface{}{
 		"complete":     res.Complete,
 		"incomplete":   res.Incomplete,
 		"interval":     res.Interval,
 		"min interval": res.MinInterval,
-		"compact":      0,
+		"compact":      compact,
 		"peers":        res.Peers,
 	}
 
