@@ -83,7 +83,7 @@ func (s *Server) newAnnounce(r *http.Request, p httprouter.Params) (*models.Anno
 		PeerID:     peerID,
 		Uploaded:   uploaded,
 	}
-	a.Addr = addr
+	a.IP = addr
 	a.Port = uint16(port)
 	return a, nil
 }

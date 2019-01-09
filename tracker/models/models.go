@@ -82,7 +82,7 @@ func (pk PeerKey) Addr() string {
 // Peer represents a participant in a BitTorrent swarm.
 type Peer struct {
 	IP           string `json:"ip"`
-	Port         int    `json:"port"`
+	Port         uint16 `json:"port"`
 	ID           string `json:"id"`
 	UserID       uint64 `json:"userId"`
 	TorrentID    uint64 `json:"torrentId"`
@@ -97,7 +97,7 @@ func (p *Peer) MarshalBencode() ([]byte, error) {
 	return bencode.EncodeBytes(map[string]interface{}{
 		"peer id": p.ID,
 		"ip":      p.IP,
-		"port":    p.Port,
+		"port":    int(p.Port),
 	})
 }
 
@@ -163,7 +163,7 @@ type Announce struct {
 	Uploaded   uint64 `json:"uploaded"`
 
 	IP   string `json:"ip"`
-	Port int    `json:"port"`
+	Port uint16 `json:"port"`
 
 	Torrent *Torrent `json:"-"`
 	User    *User    `json:"-"`
