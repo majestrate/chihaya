@@ -21,7 +21,7 @@
   "apiWriteTimeout": "4s",
   "apiListenLimit": 0,
   "udpListenAddr": "localhost:6881",
-  "httpListenAddr": "localhost:6881",
+  "httpListenAddr": "localhost.loki:6880",
   "httpRequestTimeout": "4s",
   "httpReadTimeout": "4s",
   "httpWriteTimeout": "4s",

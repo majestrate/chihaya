@@ -21,8 +21,7 @@ import (
 	"github.com/majestrate/chihaya/api"
 	"github.com/majestrate/chihaya/config"
 	"github.com/majestrate/chihaya/http"
-	loki "github.com/majestrate/chihaya/lokinet"
-	i2p "github.com/majestrate/chihaya/sam3"
+	"github.com/majestrate/chihaya/lokinet"
 
 	"github.com/majestrate/chihaya/stats"
 	"github.com/majestrate/chihaya/tracker"
@@ -85,12 +84,7 @@ func Boot() {
 	if cfg.APIConfig.ListenAddr != "" {
 		servers = append(servers, api.NewServer(cfg, tkr))
 	}
-	if cfg.I2P.Enabled {
-		servers = append(servers, http.NewServer(i2p.NewI2PNetwork(cfg.I2P), cfg, tkr))
-	} else {
-		servers = append(servers, http.NewServer(loki.NewLokiNetwork(cfg.Lokinet.ResolverAddr), cfg, tkr))
-	}
-
+	servers = append(servers, http.NewServer(lokinet.NewLokiNetwork(cfg.Lokinet.ResolverAddr), cfg, tkr))
 	var wg sync.WaitGroup
 	for _, srv := range servers {
 		wg.Add(1)
